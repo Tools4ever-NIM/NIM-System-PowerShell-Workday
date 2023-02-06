@@ -119,7 +119,8 @@ $Properties = @{
         @{ name = 'Location';                              options = @('default')                      }
         @{ name = 'WorkSpace';                              options = @('default')                      }
         @{ name = 'WorkerTypeReference';                              options = @('default')                      }
-        @{ name = 'Manager';                              options = @('default')                      }
+        @{ name = 'Manager_WorkerID';                              options = @('default')                      }
+        @{ name = 'Manager_WorkerType';                              options = @('default')                      }
         @{ name = 'Company';                              options = @('default')                      }
         @{ name = 'BusinessUnit';                              options = @('default')                      }
         @{ name = 'Supervisory';                              options = @('default')                      }
@@ -167,6 +168,8 @@ $Global:NM = New-Object System.Xml.XmlNamespaceManager -ArgumentList (New-Object
 $Global:NM.AddNamespace('wd','urn:com.workday/bsvc')
 $Global:NM.AddNamespace('bsvc','urn:com.workday/bsvc')
 
+$Global:WorkersInitialized = $false
+$Global:Workers = [System.Collections.ArrayList]@()
 $Global:WorkersEmail = [System.Collections.ArrayList]@()
 $Global:WorkersDocument = [System.Collections.ArrayList]@()
 $Global:WorkersNationalId = [System.Collections.ArrayList]@()
@@ -187,6 +190,7 @@ function Idm-WorkersRead {
         Get-ClassMetaData -SystemParams $SystemParams -Class $Class
     }
     else {
+        
         $system_params   = ConvertFrom-Json2 $SystemParams
         $function_params = ConvertFrom-Json2 $FunctionParams
 
@@ -201,7 +205,9 @@ function Idm-WorkersRead {
         $properties = @($key) + @($properties | Where-Object { $_ -ne $key })
 
         try { 
-                $xmlRequest = '<bsvc:Get_Workers_Request bsvc:version="v30.0">
+                
+                if($Global:WorkersInitialized -eq $false) {
+                    $xmlRequest = '<bsvc:Get_Workers_Request bsvc:version="v30.0">
                                     <bsvc:Response_Filter>
                                         <bsvc:Page>1</bsvc:Page>
                                     </bsvc:Response_Filter>
@@ -220,9 +226,16 @@ function Idm-WorkersRead {
                                 </bsvc:Get_Workers_Request>'
 
                 
-                $response = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
-                
-                $response | ConvertFrom-WorkdayWorkerXml
+                    $response = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
+                    
+                    foreach($item in ($response | ConvertFrom-WorkdayWorkerXml) ) {
+                        [void]$Global:Workers.Add($item)
+                    }
+                    
+                    $Global:WorkersInitialized = $true
+                } else {
+                    $Global:Workers
+                }
                 
                 
             }
@@ -249,6 +262,12 @@ function Idm-WorkersEmailRead {
         Get-ClassMetaData -SystemParams $SystemParams -Class $Class
     }
     else {
+        if($Global:WorkersInitialized -eq $false)
+        {
+            Log info "Worker data not yet collected, collecting now"
+            Idm-WorkersRead -FunctionParams $FunctionParams -SystemParams $SystemParams > $null
+        }
+        
         $system_params   = ConvertFrom-Json2 $SystemParams
         $function_params = ConvertFrom-Json2 $FunctionParams
 
@@ -291,6 +310,12 @@ function Idm-WorkersDocumentRead {
         Get-ClassMetaData -SystemParams $SystemParams -Class $Class
     }
     else {
+        if($Global:WorkersInitialized -eq $false)
+        {
+            Log info "Worker data not yet collected, collecting now"
+            Idm-WorkersRead -FunctionParams $FunctionParams -SystemParams $SystemParams > $null
+        }
+        
         $system_params   = ConvertFrom-Json2 $SystemParams
         $function_params = ConvertFrom-Json2 $FunctionParams
 
@@ -333,6 +358,12 @@ function Idm-WorkersNationalIdRead {
         Get-ClassMetaData -SystemParams $SystemParams -Class $Class
     }
     else {
+        if($Global:WorkersInitialized -eq $false)
+        {
+            Log info "Worker data not yet collected, collecting now"
+            Idm-WorkersRead -FunctionParams $FunctionParams -SystemParams $SystemParams > $null
+        }
+        
         $system_params   = ConvertFrom-Json2 $SystemParams
         $function_params = ConvertFrom-Json2 $FunctionParams
 
@@ -375,6 +406,12 @@ function Idm-WorkersOtherIdRead {
         Get-ClassMetaData -SystemParams $SystemParams -Class $Class
     }
     else {
+        if($Global:WorkersInitialized -eq $false)
+        {
+            Log info "Worker data not yet collected, collecting now"
+            Idm-WorkersRead -FunctionParams $FunctionParams -SystemParams $SystemParams > $null
+        }
+        
         $system_params   = ConvertFrom-Json2 $SystemParams
         $function_params = ConvertFrom-Json2 $FunctionParams
 
@@ -417,6 +454,12 @@ function Idm-WorkersPhoneRead {
         Get-ClassMetaData -SystemParams $SystemParams -Class $Class
     }
     else {
+        if($Global:WorkersInitialized -eq $false)
+        {
+            Log info "Worker data not yet collected, collecting now"
+            Idm-WorkersRead -FunctionParams $FunctionParams -SystemParams $SystemParams > $null
+        }
+        
         $system_params   = ConvertFrom-Json2 $SystemParams
         $function_params = ConvertFrom-Json2 $FunctionParams
 
@@ -551,7 +594,8 @@ function ConvertFrom-WorkdayWorkerXml {
                 Location              = $null
                 WorkSpace             = $null
                 WorkerTypeReference   = $null
-                Manager               = $null
+                Manager_WorkerID      = $null
+                Manager_WorkerType      = $null
                 Company               = $null
                 BusinessUnit          = $null
                 Supervisory           = $null
@@ -587,14 +631,18 @@ function ConvertFrom-WorkdayWorkerXml {
                     
                     $workerJobData = $x.SelectSingleNode('./wd:Worker_Data/wd:Employment_Data/wd:Worker_Job_Data', $Global:NM)
                     if ($null -ne $workerJobData) {
+
+                        $manager = $workerJobData.Position_Data.Manager_as_of_last_detected_manager_change_Reference.ID |
+                        Where-Object {$_.type -ne 'WID'} |
+                            Select-Object @{Name='WorkerType';Expression={$_.type}}, @{Name='WorkerID';Expression={$_.'#text'}}
+
                         $o.BusinessTitle = $workerJobData.Position_Data.Business_Title
                         $o.JobProfileName = $workerJobData.Position_Data.Job_Profile_Summary_Data.Job_Profile_Name
                         $o.Location = $workerJobData.SelectNodes('./wd:Position_Data/wd:Business_Site_Summary_Data/wd:Name', $Global:NM) | Select-Object -ExpandProperty InnerText -First 1 -ErrorAction SilentlyContinue
                         $o.WorkSpace = $workerJobData.SelectNodes('./wd:Position_Data/wd:Work_Space__Reference/wd:ID[@wd:type="Location_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -First 1 -ErrorAction SilentlyContinue
                         $o.WorkerTypeReference = $workerJobData.SelectNodes('./wd:Position_Data/wd:Worker_Type_Reference/wd:ID[@wd:type="Employee_Type_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -First 1 -ErrorAction SilentlyContinue
-                        $o.Manager = $workerJobData.Position_Data.Manager_as_of_last_detected_manager_change_Reference.ID |
-                            Where-Object {$_.type -ne 'WID'} |
-                                Select-Object @{Name='WorkerType';Expression={$_.type}}, @{Name='WorkerID';Expression={$_.'#text'}}
+                        $o.Manager_WorkerType = $manager.WorkerType
+                        $o.Manager_WorkerID = $manager.WorkerID
                         $o.Company = $workerJobData.SelectNodes('./wd:Position_Organizations_Data/wd:Position_Organization_Data/wd:Organization_Data[wd:Organization_Type_Reference/wd:ID[@wd:type="Organization_Type_ID" and . = "COMPANY"]]', $Global:NM) | Select-Object -ExpandProperty Organization_Name -First 1 -ErrorAction SilentlyContinue
                         $o.BusinessUnit = $workerJobData.SelectNodes('./wd:Position_Organizations_Data/wd:Position_Organization_Data/wd:Organization_Data[wd:Organization_Type_Reference/wd:ID[@wd:type="Organization_Type_ID" and . = "BUSINESS_UNIT"]]', $Global:NM) | Select-Object -ExpandProperty Organization_Name -First 1 -ErrorAction SilentlyContinue
                         $o.Supervisory = $workerJobData.SelectNodes('./wd:Position_Organizations_Data/wd:Position_Organization_Data/wd:Organization_Data[wd:Organization_Type_Reference/wd:ID[@wd:type="Organization_Type_ID" and . = "SUPERVISORY"]]', $Global:NM) | Select-Object -ExpandProperty Organization_Name -First 1 -ErrorAction SilentlyContinue
@@ -613,9 +661,7 @@ function ConvertFrom-WorkdayWorkerXml {
                         })
                     }
 
-                    Log info ($o | ConvertTo-Json)
                     Write-Output $o
-                    break
                 }
             }
         }
