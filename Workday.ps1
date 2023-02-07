@@ -8,6 +8,18 @@ $Log_MaskableKeys = @(
     'Password'
 )
 
+$Global:NM = New-Object System.Xml.XmlNamespaceManager -ArgumentList (New-Object System.Xml.NameTable)
+$Global:NM.AddNamespace('wd','urn:com.workday/bsvc')
+$Global:NM.AddNamespace('bsvc','urn:com.workday/bsvc')
+
+$Global:WorkersInitialized = $false
+$Global:Workers = [System.Collections.ArrayList]@()
+$Global:WorkersEmail = [System.Collections.ArrayList]@()
+$Global:WorkersDocument = [System.Collections.ArrayList]@()
+$Global:WorkersNationalId = [System.Collections.ArrayList]@()
+$Global:WorkersOtherId = [System.Collections.ArrayList]@()
+$Global:WorkersPhone = [System.Collections.ArrayList]@()
+
 #
 # System functions
 #
@@ -22,7 +34,7 @@ function Idm-SystemInfo {
     )
 
     Log info "-Connection=$Connection -TestConnection=$TestConnection -Configuration=$Configuration -ConnectionParams='$ConnectionParams'"
-    
+
     if ($Connection) {
         @(
             @{
@@ -63,6 +75,14 @@ function Idm-SystemInfo {
                 label_indent = $true
                 description = 'AXL API Version'
                 value = '39.2'
+            },
+            @{
+                name = 'pagesize'
+                type = 'textbox'
+                label = 'Page Size'
+                label_indent = $true
+                description = 'Number of records per page'
+                value = '250'
             }
             @{
                 name = 'nr_of_sessions'
@@ -94,7 +114,6 @@ function Idm-SystemInfo {
 
 function Idm-OnUnload {
 }
-
 
 #
 # Object CRUD functions
@@ -164,23 +183,14 @@ $Properties = @{
     )
 }
 
-$Global:NM = New-Object System.Xml.XmlNamespaceManager -ArgumentList (New-Object System.Xml.NameTable)
-$Global:NM.AddNamespace('wd','urn:com.workday/bsvc')
-$Global:NM.AddNamespace('bsvc','urn:com.workday/bsvc')
 
-$Global:WorkersInitialized = $false
-$Global:Workers = [System.Collections.ArrayList]@()
-$Global:WorkersEmail = [System.Collections.ArrayList]@()
-$Global:WorkersDocument = [System.Collections.ArrayList]@()
-$Global:WorkersNationalId = [System.Collections.ArrayList]@()
-$Global:WorkersOtherId = [System.Collections.ArrayList]@()
-$Global:WorkersPhone = [System.Collections.ArrayList]@()
 
 function Idm-WorkersRead {
     param (
         [switch] $GetMeta,
         [string] $SystemParams,
-        [string] $FunctionParams
+        [string] $FunctionParams,
+        [bool] $CollectionOnly = $false
     )
     $Class = "Worker"
     Log info "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
@@ -205,11 +215,16 @@ function Idm-WorkersRead {
         $properties = @($key) + @($properties | Where-Object { $_ -ne $key })
 
         try { 
-                
-                if($Global:WorkersInitialized -eq $false) {
+                $page = 0
+                $totalPages = 1
+                   
+                while($page -lt $totalPages) {
+                    $page++
+
                     $xmlRequest = '<bsvc:Get_Workers_Request bsvc:version="v30.0">
                                     <bsvc:Response_Filter>
-                                        <bsvc:Page>1</bsvc:Page>
+                                        <bsvc:Page>{0}</bsvc:Page>
+                                        <bsvc:Count>{1}</bsvc:Count>
                                     </bsvc:Response_Filter>
                                     <bsvc:Request_Criteria>
                                         <bsvc:Exclude_Inactive_Workers>true</bsvc:Exclude_Inactive_Workers>
@@ -223,21 +238,23 @@ function Idm-WorkersRead {
                                         <bsvc:Include_Roles>true</bsvc:Include_Roles>
                                         <bsvc:Include_Worker_Documents>true</bsvc:Include_Worker_Documents>
                                     </bsvc:Response_Group>
-                                </bsvc:Get_Workers_Request>'
+                                </bsvc:Get_Workers_Request>' -f $page, $system_params.pagesize
 
                 
                     $response = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
-                    
+                    $totalPages = $response.Get_Workers_Response.Response_Results.Total_Pages
+
+                    Log info "Page $($Page) of $($totalPages) - Record Count $($response.Get_Workers_Response.Response_Data.Worker.count)"
+
                     foreach($item in ($response | ConvertFrom-WorkdayWorkerXml) ) {
                         [void]$Global:Workers.Add($item)
                     }
-                    
-                    $Global:WorkersInitialized = $true
-                } else {
-                    $Global:Workers
-                }
-                
-                
+
+                    if($CollectionOnly -ne $true)
+                    {
+                        $Global:Workers
+                    }
+                }              
             }
             catch {
                 Log error "Failed: $_"
@@ -248,7 +265,7 @@ function Idm-WorkersRead {
     Log info "Done"
 }
 
-function Idm-WorkersEmailRead {
+function Idm-WorkersEmailsRead {
     param (
         [switch] $GetMeta,
         [string] $SystemParams,
@@ -262,11 +279,7 @@ function Idm-WorkersEmailRead {
         Get-ClassMetaData -SystemParams $SystemParams -Class $Class
     }
     else {
-        if($Global:WorkersInitialized -eq $false)
-        {
-            Log info "Worker data not yet collected, collecting now"
-            Idm-WorkersRead -FunctionParams $FunctionParams -SystemParams $SystemParams > $null
-        }
+        Check-WorkdayConnection -SystemParams $SystemParams
         
         $system_params   = ConvertFrom-Json2 $SystemParams
         $function_params = ConvertFrom-Json2 $FunctionParams
@@ -296,6 +309,151 @@ function Idm-WorkersEmailRead {
     Log info "Done"
 }
 
+function Idm-WorkersEmailsUpdate {
+    param (
+        # Operations
+        [switch] $GetMeta,
+        # Parameters
+        [string] $SystemParams,
+        [string] $FunctionParams
+    )
+
+    Log info "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
+
+    if ($GetMeta) {
+        #
+        # Get meta data
+        #
+
+        @{
+            semantics = 'update'
+            parameters = @(
+                @{ name = '*';                     allowance = 'mandatory'   }
+            )
+        }
+    }
+    else {
+        #
+        # Execute function
+        #
+        $system_params   = ConvertFrom-Json2 $SystemParams
+        $function_params = ConvertFrom-Json2 $FunctionParams
+
+        $key = ($Global:Properties.WorkerEmail | Where-Object { $_.options.Contains('key') }).name
+
+        try {
+            $xmlRequest = '<bsvc:Maintain_Contact_Information_for_Person_Event_Request bsvc:version="v30.0" bsvc:Add_Only="false">
+                                <bsvc:Business_Process_Parameters>
+                                    <bsvc:Auto_Complete>true</bsvc:Auto_Complete>
+                                    <bsvc:Run_Now>true</bsvc:Run_Now>
+                                    <bsvc:Comment_Data>
+                                        <bsvc:Comment>Email set by NIM</bsvc:Comment>
+                                    </bsvc:Comment_Data>
+                                </bsvc:Business_Process_Parameters>
+                                <bsvc:Maintain_Contact_Information_Data>
+                                    <bsvc:Worker_Reference>
+                                        <bsvc:ID bsvc:type="Employee_ID">{0}</bsvc:ID>
+                                    </bsvc:Worker_Reference>
+                                    <bsvc:Worker_Contact_Information_Data>
+                                        <bsvc:Email_Address_Data bsvc:Do_Not_Replace_All="true">
+                                            <bsvc:Email_Address>{1}</bsvc:Email_Address>
+                                            <bsvc:Usage_Data bsvc:Public="{2}">
+                                                <bsvc:Type_Data bsvc:Primary="{3}">
+                                                    <bsvc:Type_Reference>
+                                                        <bsvc:ID bsvc:type="Communication_Usage_Type_ID">{4}</bsvc:ID>
+                                                    </bsvc:Type_Reference>
+                                                </bsvc:Type_Data>
+                                            </bsvc:Usage_Data>
+                                        </bsvc:Email_Address_Data>
+                                    </bsvc:Worker_Contact_Information_Data>
+                                </bsvc:Maintain_Contact_Information_Data>
+                            </bsvc:Maintain_Contact_Information_for_Person_Event_Request>' -f $key, $function_params.Email, $properties.Public, $properties.Primary, $properties.UsageType
+
+                
+            $response = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
+        }
+        catch {
+            Log error "Failed: $_"
+            Write-Error $_
+        }
+    }
+
+    Log info "Done"
+}
+
+function Idm-WorkersEmailsCreate {
+    param (
+        # Operations
+        [switch] $GetMeta,
+        # Parameters
+        [string] $SystemParams,
+        [string] $FunctionParams
+    )
+
+    Log info "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
+
+    if ($GetMeta) {
+        #
+        # Get meta data
+        #
+
+        @{
+            semantics = 'create'
+            parameters = @(
+                @{ name = '*';                     allowance = 'mandatory'   }
+            )
+        }
+    }
+    else {
+        #
+        # Execute function
+        #
+
+        $system_params   = ConvertFrom-Json2 $SystemParams
+        $function_params = ConvertFrom-Json2 $FunctionParams
+
+        $key = ($Global:Properties.WorkerEmail | Where-Object { $_.options.Contains('key') }).name
+
+        try {
+            $xmlRequest = '<bsvc:Maintain_Contact_Information_for_Person_Event_Request bsvc:version="v30.0" bsvc:Add_Only="false">
+                                <bsvc:Business_Process_Parameters>
+                                    <bsvc:Auto_Complete>true</bsvc:Auto_Complete>
+                                    <bsvc:Run_Now>true</bsvc:Run_Now>
+                                    <bsvc:Comment_Data>
+                                        <bsvc:Comment>Email set by NIM</bsvc:Comment>
+                                    </bsvc:Comment_Data>
+                                </bsvc:Business_Process_Parameters>
+                                <bsvc:Maintain_Contact_Information_Data>
+                                    <bsvc:Worker_Reference>
+                                        <bsvc:ID bsvc:type="Employee_ID">{0}</bsvc:ID>
+                                    </bsvc:Worker_Reference>
+                                    <bsvc:Worker_Contact_Information_Data>
+                                        <bsvc:Email_Address_Data bsvc:Do_Not_Replace_All="true">
+                                            <bsvc:Email_Address>{1}</bsvc:Email_Address>
+                                            <bsvc:Usage_Data bsvc:Public="{2}">
+                                                <bsvc:Type_Data bsvc:Primary="{3}">
+                                                    <bsvc:Type_Reference>
+                                                        <bsvc:ID bsvc:type="Communication_Usage_Type_ID">{4}</bsvc:ID>
+                                                    </bsvc:Type_Reference>
+                                                </bsvc:Type_Data>
+                                            </bsvc:Usage_Data>
+                                        </bsvc:Email_Address_Data>
+                                    </bsvc:Worker_Contact_Information_Data>
+                                </bsvc:Maintain_Contact_Information_Data>
+                            </bsvc:Maintain_Contact_Information_for_Person_Event_Request>' -f $properties.WorkerWid, $properties.Email, $properties.Public, $properties.Primary, $properties.UsageType
+
+                
+            $response = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
+        }
+        catch {
+            Log error "Failed: $_"
+            Write-Error $_
+        }
+    }
+
+    Log info "Done"
+}
+
 function Idm-WorkersDocumentRead {
     param (
         [switch] $GetMeta,
@@ -310,11 +468,7 @@ function Idm-WorkersDocumentRead {
         Get-ClassMetaData -SystemParams $SystemParams -Class $Class
     }
     else {
-        if($Global:WorkersInitialized -eq $false)
-        {
-            Log info "Worker data not yet collected, collecting now"
-            Idm-WorkersRead -FunctionParams $FunctionParams -SystemParams $SystemParams > $null
-        }
+        Check-WorkdayConnection -SystemParams $SystemParams
         
         $system_params   = ConvertFrom-Json2 $SystemParams
         $function_params = ConvertFrom-Json2 $FunctionParams
@@ -358,11 +512,7 @@ function Idm-WorkersNationalIdRead {
         Get-ClassMetaData -SystemParams $SystemParams -Class $Class
     }
     else {
-        if($Global:WorkersInitialized -eq $false)
-        {
-            Log info "Worker data not yet collected, collecting now"
-            Idm-WorkersRead -FunctionParams $FunctionParams -SystemParams $SystemParams > $null
-        }
+        Check-WorkdayConnection -SystemParams $SystemParams
         
         $system_params   = ConvertFrom-Json2 $SystemParams
         $function_params = ConvertFrom-Json2 $FunctionParams
@@ -406,11 +556,7 @@ function Idm-WorkersOtherIdRead {
         Get-ClassMetaData -SystemParams $SystemParams -Class $Class
     }
     else {
-        if($Global:WorkersInitialized -eq $false)
-        {
-            Log info "Worker data not yet collected, collecting now"
-            Idm-WorkersRead -FunctionParams $FunctionParams -SystemParams $SystemParams > $null
-        }
+        Check-WorkdayConnection -SystemParams $SystemParams
         
         $system_params   = ConvertFrom-Json2 $SystemParams
         $function_params = ConvertFrom-Json2 $FunctionParams
@@ -454,11 +600,7 @@ function Idm-WorkersPhoneRead {
         Get-ClassMetaData -SystemParams $SystemParams -Class $Class
     }
     else {
-        if($Global:WorkersInitialized -eq $false)
-        {
-            Log info "Worker data not yet collected, collecting now"
-            Idm-WorkersRead -FunctionParams $FunctionParams -SystemParams $SystemParams > $null
-        }
+        Check-WorkdayConnection -SystemParams $SystemParams
         
         $system_params   = ConvertFrom-Json2 $SystemParams
         $function_params = ConvertFrom-Json2 $FunctionParams
@@ -523,7 +665,7 @@ function Invoke-WorkdayRequest {
 	}
 
     try {
-		$response = Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -Body $soapEnvelope -ErrorAction Stop
+		$response = Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -Body $soapEnvelope -Proxy "http://localhost:8888" -ErrorAction Stop
         $result = [xml]$response.Envelope.Body.InnerXml
 	}
 	catch [System.Net.WebException] {
@@ -554,7 +696,6 @@ function Invoke-WorkdayRequest {
         Write-Error $_
     }
     finally {
-        $result | Out-File "C:\\data\\test.xml"
         Write-Output $result
     }
 }
@@ -650,16 +791,55 @@ function ConvertFrom-WorkdayWorkerXml {
 
 
                     #Split Tables
-                    foreach($item in $o.Email)
-                    {
-                        [void]$Global:WorkersEmail.Add(@{
-                            WorkerID = $o.WorkerWid 
-                            UsageType = $item.UsageType
-                            Email = $item.Email
-                            Primary = $item.Primary
-                            Public = $item.Public
-                        })
-                    }
+                        #Email
+                        foreach($item in $o.Email)
+                        {
+                            [void]$Global:WorkersEmail.Add(@{
+                                WorkerID = $o.WorkerID
+                                UsageType = $item.UsageType
+                                Email = $item.Email
+                                Primary = $item.Primary
+                                Public = $item.Public
+                            })
+                        }
+
+                        #Phone
+                        foreach($item in $o.Phone)
+                        {
+                            [void]$Global:WorkersPhone.Add(@{
+                                WorkerID = $o.WorkerID
+                                UsageType = $item.UsageType
+                                DeviceType = $item.DeviceType
+                                Number = $item.Number
+                                Extension = $item.Extension
+                                Primary = $item.Primary
+                                Public = $item.Public
+                            })
+                        }
+
+                        #NationalId
+                        foreach($item in $o.NationalId)
+                        {
+                            [void]$Global:WorkersNationalId.Add(@{
+                                WorkerID = $o.WorkerID
+                                Type = $item.Type
+                                ID = $item.ID
+                                Descriptor = $item.Descriptor
+                            })
+                        }
+
+                        #OtherId
+                        foreach($item in $o.OtherId)
+                        {
+                            [void]$Global:WorkersOtherId.Add(@{
+                                WorkerID = $o.WorkerID
+                                Type = $item.Type
+                                ID = $item.ID
+                                Descriptor = $item.Descriptor
+                                Issued_Date = $item.Issued_Date
+                                Expiration_Date = $item.Expiration_Date
+                            })
+                        }
 
                     Write-Output $o
                 }
@@ -716,7 +896,6 @@ function Get-WorkdayWorkerDocument {
 function Get-WorkdayWorkerEmail {
     [OutputType([PSCustomObject])]
     param (
-        [Parameter(ParameterSetName="NoSearch")]
         [xml]$WorkerXml
 
     )
@@ -971,4 +1150,14 @@ function Get-ClassMetaData {
             value = ($Global:Properties.$Class | Where-Object { $_.options.Contains('default') }).name
         }
     )
+}
+
+function Check-WorkdayConnection { 
+    param (
+        [string] $SystemParams
+    )
+    if($Global:Workers.count -lt 1) {
+        Log info "Worker data not yet collected, collecting now"
+        Idm-WorkersRead -FunctionParams $FunctionParams -SystemParams $SystemParams -CollectionOnly $true
+    }
 }
