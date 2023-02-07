@@ -12,7 +12,6 @@ $Global:NM = New-Object System.Xml.XmlNamespaceManager -ArgumentList (New-Object
 $Global:NM.AddNamespace('wd','urn:com.workday/bsvc')
 $Global:NM.AddNamespace('bsvc','urn:com.workday/bsvc')
 
-$Global:WorkersInitialized = $false
 $Global:Workers = [System.Collections.ArrayList]@()
 $Global:WorkersEmail = [System.Collections.ArrayList]@()
 $Global:WorkersDocument = [System.Collections.ArrayList]@()
