@@ -12,6 +12,7 @@ $Global:NM = New-Object System.Xml.XmlNamespaceManager -ArgumentList (New-Object
 $Global:NM.AddNamespace('wd','urn:com.workday/bsvc')
 $Global:NM.AddNamespace('bsvc','urn:com.workday/bsvc')
 
+$Global:WorkersCacheTime = Get-Date
 $Global:Workers = [System.Collections.ArrayList]@()
 $Global:WorkersEmail = [System.Collections.ArrayList]@()
 $Global:WorkersDocument = [System.Collections.ArrayList]@()
@@ -84,18 +85,64 @@ function Idm-SystemInfo {
                 value = '250'
             }
             @{
+                name = 'use_proxy'
+                type = 'checkbox'
+                label = 'Use Proxy'
+                description = 'Use Proxy server for requets'
+                value = $false                  # Default value of checkbox item
+            }
+            @{
+                name = 'proxy_address'
+                type = 'textbox'
+                label = 'Proxy Address'
+                description = 'Address of the proxy server'
+                value = 'http://localhost:8888'
+                disabled = '!use_proxy'
+                hidden = '!use_proxy'
+            }
+            @{
+                name = 'use_proxy_credentials'
+                type = 'checkbox'
+                label = 'Use Proxy'
+                description = 'Use Proxy server for requets'
+                value = $false
+                disabled = '!use_proxy'
+                hidden = '!use_proxy'
+            }
+            @{
+                name = 'proxy_username'
+                type = 'textbox'
+                label = 'Proxy Username'
+                label_indent = $true
+                description = 'Username account'
+                value = ''
+                disabled = '!use_proxy_credentials'
+                hidden = '!use_proxy_credentials'
+            }
+            @{
+                name = 'proxy_password'
+                type = 'textbox'
+                password = $true
+                label = 'Proxy Password'
+                label_indent = $true
+                description = 'User account password'
+                value = ''
+                disabled = '!use_proxy_credentials'
+                hidden = '!use_proxy_credentials'
+            }
+            @{
                 name = 'nr_of_sessions'
                 type = 'textbox'
                 label = 'Max. number of simultaneous sessions'
                 description = ''
-                value = 5
+                value = 1
             }
             @{
                 name = 'sessions_idle_timeout'
                 type = 'textbox'
                 label = 'Session cleanup idle time (minutes)'
                 description = ''
-                value = 30
+                value = 1
             }
         )
     }
@@ -144,27 +191,27 @@ $Properties = @{
         @{ name = 'Supervisory';                              options = @('default')                      }
     )
     WorkerEmail = @(
-        @{ name = 'WorkerWid';                              options = @('default','key')                      }
+        @{ name = 'WorkerID';                              options = @('default','key')                      }
         @{ name = 'UsageType';                              options = @('default')                      }
         @{ name = 'Email';                              options = @('default')                      }
         @{ name = 'Primary';                              options = @('default')                      }
         @{ name = 'Public';                              options = @('default')                      }
     )
     WorkerDocument = @(
-        @{ name = 'WorkerWid';                              options = @('default','key')                      }
+        @{ name = 'WorkerID';                              options = @('default','key')                      }
         @{ name = 'FileName';                              options = @('default')                      }
         @{ name = 'Category';                              options = @('default')                      }
         @{ name = 'Base64';                              options = @('default')                      }
         @{ name = 'Path';                              options = @('default')                      }
     )
     WorkerNationalId = @(
-        @{ name = 'WorkerWid';                              options = @('default','key')                      }
+        @{ name = 'WorkerID';                              options = @('default','key')                      }
         @{ name = 'Type';                              options = @('default')                      }
         @{ name = 'ID';                              options = @('default')                      }
         @{ name = 'Descriptor';                              options = @('default')                      }
     )
     WorkerOtherId = @(
-        @{ name = 'WorkerWid';                              options = @('default','key')                      }
+        @{ name = 'WorkerID';                              options = @('default','key')                      }
         @{ name = 'Type';                              options = @('default')                      }
         @{ name = 'ID';                              options = @('default')                      }
         @{ name = 'Descriptor';                              options = @('default')                      }
@@ -172,7 +219,7 @@ $Properties = @{
         @{ name = 'Expiration_Date';                              options = @('default')                      }
     )
     WorkerPhone = @(
-        @{ name = 'WorkerWid';                              options = @('default','key')                      }
+        @{ name = 'WorkerID';                              options = @('default','key')                      }
         @{ name = 'UsageType';                              options = @('default')                      }
         @{ name = 'DeviceType';                              options = @('default')                      }
         @{ name = 'Number';                              options = @('default')                      }
@@ -188,8 +235,7 @@ function Idm-WorkersRead {
     param (
         [switch] $GetMeta,
         [string] $SystemParams,
-        [string] $FunctionParams,
-        [bool] $CollectionOnly = $false
+        [string] $FunctionParams
     )
     $Class = "Worker"
     Log info "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
@@ -214,46 +260,53 @@ function Idm-WorkersRead {
         $properties = @($key) + @($properties | Where-Object { $_ -ne $key })
 
         try { 
-                $page = 0
-                $totalPages = 1
-                   
-                while($page -lt $totalPages) {
-                    $page++
+            if(     $Global:Workers.count -lt 1 `
+                    -or ( ((Get-Date) - $Global:WorkersCacheTime) -gt (new-timespan -minutes 1) ) 
+              ) {                   
+                    $page = 0
+                    $totalPages = 1
+                    
+                    while($page -lt $totalPages) {
+                        $page++
 
-                    $xmlRequest = '<bsvc:Get_Workers_Request bsvc:version="v30.0">
-                                    <bsvc:Response_Filter>
-                                        <bsvc:Page>{0}</bsvc:Page>
-                                        <bsvc:Count>{1}</bsvc:Count>
-                                    </bsvc:Response_Filter>
-                                    <bsvc:Request_Criteria>
-                                        <bsvc:Exclude_Inactive_Workers>true</bsvc:Exclude_Inactive_Workers>
-                                    </bsvc:Request_Criteria>
-                                    <bsvc:Response_Group>
-                                        <bsvc:Include_Reference>true</bsvc:Include_Reference>
-                                        <bsvc:Include_Personal_Information>true</bsvc:Include_Personal_Information>
-                                        <bsvc:Include_Employment_Information>true</bsvc:Include_Employment_Information>
-                                        <bsvc:Include_Compensation>true</bsvc:Include_Compensation>
-                                        <bsvc:Include_Organizations>true</bsvc:Include_Organizations>
-                                        <bsvc:Include_Roles>true</bsvc:Include_Roles>
-                                        <bsvc:Include_Worker_Documents>true</bsvc:Include_Worker_Documents>
-                                    </bsvc:Response_Group>
-                                </bsvc:Get_Workers_Request>' -f $page, $system_params.pagesize
+                        $xmlRequest = '<bsvc:Get_Workers_Request bsvc:version="v30.0">
+                                        <bsvc:Response_Filter>
+                                            <bsvc:Page>{0}</bsvc:Page>
+                                            <bsvc:Count>{1}</bsvc:Count>
+                                        </bsvc:Response_Filter>
+                                        <bsvc:Request_Criteria>
+                                            <bsvc:Exclude_Inactive_Workers>true</bsvc:Exclude_Inactive_Workers>
+                                        </bsvc:Request_Criteria>
+                                        <bsvc:Response_Group>
+                                            <bsvc:Include_Reference>true</bsvc:Include_Reference>
+                                            <bsvc:Include_Personal_Information>true</bsvc:Include_Personal_Information>
+                                            <bsvc:Include_Employment_Information>true</bsvc:Include_Employment_Information>
+                                            <bsvc:Include_Compensation>true</bsvc:Include_Compensation>
+                                            <bsvc:Include_Organizations>true</bsvc:Include_Organizations>
+                                            <bsvc:Include_Roles>true</bsvc:Include_Roles>
+                                            <bsvc:Include_Worker_Documents>true</bsvc:Include_Worker_Documents>
+                                        </bsvc:Response_Group>
+                                    </bsvc:Get_Workers_Request>' -f $page, $system_params.pagesize
 
-                
-                    $response = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
-                    $totalPages = $response.Get_Workers_Response.Response_Results.Total_Pages
+                    
+                        $response = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
+                        $totalPages = $response.Get_Workers_Response.Response_Results.Total_Pages
+                        
+                        LogIO info "Page $($Page) of $($totalPages) - Record Count $($response.Get_Workers_Response.Response_Data.Worker.count)"
+                        Log info "Page $($Page) of $($totalPages) - Record Count $($response.Get_Workers_Response.Response_Data.Worker.count)"
 
-                    Log info "Page $($Page) of $($totalPages) - Record Count $($response.Get_Workers_Response.Response_Data.Worker.count)"
+                        foreach($item in ($response | ConvertFrom-WorkdayWorkerXml) ) {
+                            [void]$Global:Workers.Add($item)
+                        }
 
-                    foreach($item in ($response | ConvertFrom-WorkdayWorkerXml) ) {
-                        [void]$Global:Workers.Add($item)
-                    }
+                        
+                    }   
 
-                    if($CollectionOnly -ne $true)
-                    {
-                        $Global:Workers
-                    }
-                }              
+                    $Global:WorkersCacheTime = Get-Date
+                } else {
+                    $Global:Workers
+                }
+                    
             }
             catch {
                 Log error "Failed: $_"
@@ -327,7 +380,10 @@ function Idm-WorkersEmailsUpdate {
         @{
             semantics = 'update'
             parameters = @(
-                @{ name = '*';                     allowance = 'mandatory'   }
+                $Global:Properties.WorkerEmail | ForEach-Object {
+                    @{ name = $_.name; allowance = 'mandatory' }
+                }    
+            #@{ name = '*';                     allowance = 'mandatory'   }
             )
         }
     }
@@ -341,6 +397,7 @@ function Idm-WorkersEmailsUpdate {
         $key = ($Global:Properties.WorkerEmail | Where-Object { $_.options.Contains('key') }).name
 
         try {
+            $currentDate = Get-Date -Format "yyyy-MM-dd";
             $xmlRequest = '<bsvc:Maintain_Contact_Information_for_Person_Event_Request bsvc:version="v30.0" bsvc:Add_Only="false">
                                 <bsvc:Business_Process_Parameters>
                                     <bsvc:Auto_Complete>true</bsvc:Auto_Complete>
@@ -353,20 +410,21 @@ function Idm-WorkersEmailsUpdate {
                                     <bsvc:Worker_Reference>
                                         <bsvc:ID bsvc:type="Employee_ID">{0}</bsvc:ID>
                                     </bsvc:Worker_Reference>
+                                    <bsvc:Effective_Date>{1}</bsvc:Effective_Date>
                                     <bsvc:Worker_Contact_Information_Data>
                                         <bsvc:Email_Address_Data bsvc:Do_Not_Replace_All="true">
-                                            <bsvc:Email_Address>{1}</bsvc:Email_Address>
-                                            <bsvc:Usage_Data bsvc:Public="{2}">
-                                                <bsvc:Type_Data bsvc:Primary="{3}">
+                                            <bsvc:Email_Address>{2}</bsvc:Email_Address>
+                                            <bsvc:Usage_Data bsvc:Public="{3}">
+                                                <bsvc:Type_Data bsvc:Primary="{4}">
                                                     <bsvc:Type_Reference>
-                                                        <bsvc:ID bsvc:type="Communication_Usage_Type_ID">{4}</bsvc:ID>
+                                                        <bsvc:ID bsvc:type="Communication_Usage_Type_ID">{5}</bsvc:ID>
                                                     </bsvc:Type_Reference>
                                                 </bsvc:Type_Data>
                                             </bsvc:Usage_Data>
                                         </bsvc:Email_Address_Data>
                                     </bsvc:Worker_Contact_Information_Data>
                                 </bsvc:Maintain_Contact_Information_Data>
-                            </bsvc:Maintain_Contact_Information_for_Person_Event_Request>' -f $key, $function_params.Email, $properties.Public, $properties.Primary, $properties.UsageType
+                            </bsvc:Maintain_Contact_Information_for_Person_Event_Request>' -f $function_params.WorkerID, $currentDate, $function_params.Email, $function_params.Public, $function_params.Primary, $function_params.UsageType
 
                 
             $response = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
@@ -399,7 +457,10 @@ function Idm-WorkersEmailsCreate {
         @{
             semantics = 'create'
             parameters = @(
-                @{ name = '*';                     allowance = 'mandatory'   }
+                $Global:Properties.WorkerEmail | ForEach-Object {
+                    @{ name = $_.name; allowance = 'mandatory' }
+                }    
+            #@{ name = '*';                     allowance = 'mandatory'   }
             )
         }
     }
@@ -414,6 +475,7 @@ function Idm-WorkersEmailsCreate {
         $key = ($Global:Properties.WorkerEmail | Where-Object { $_.options.Contains('key') }).name
 
         try {
+            $currentDate = Get-Date -Format "yyyy-MM-dd";
             $xmlRequest = '<bsvc:Maintain_Contact_Information_for_Person_Event_Request bsvc:version="v30.0" bsvc:Add_Only="false">
                                 <bsvc:Business_Process_Parameters>
                                     <bsvc:Auto_Complete>true</bsvc:Auto_Complete>
@@ -426,20 +488,21 @@ function Idm-WorkersEmailsCreate {
                                     <bsvc:Worker_Reference>
                                         <bsvc:ID bsvc:type="Employee_ID">{0}</bsvc:ID>
                                     </bsvc:Worker_Reference>
+                                    <bsvc:Effective_Date>{1}</bsvc:Effective_Date>
                                     <bsvc:Worker_Contact_Information_Data>
                                         <bsvc:Email_Address_Data bsvc:Do_Not_Replace_All="true">
-                                            <bsvc:Email_Address>{1}</bsvc:Email_Address>
-                                            <bsvc:Usage_Data bsvc:Public="{2}">
-                                                <bsvc:Type_Data bsvc:Primary="{3}">
+                                            <bsvc:Email_Address>{2}</bsvc:Email_Address>
+                                            <bsvc:Usage_Data bsvc:Public="{3}">
+                                                <bsvc:Type_Data bsvc:Primary="{4}">
                                                     <bsvc:Type_Reference>
-                                                        <bsvc:ID bsvc:type="Communication_Usage_Type_ID">{4}</bsvc:ID>
+                                                        <bsvc:ID bsvc:type="Communication_Usage_Type_ID">{5}</bsvc:ID>
                                                     </bsvc:Type_Reference>
                                                 </bsvc:Type_Data>
                                             </bsvc:Usage_Data>
                                         </bsvc:Email_Address_Data>
                                     </bsvc:Worker_Contact_Information_Data>
                                 </bsvc:Maintain_Contact_Information_Data>
-                            </bsvc:Maintain_Contact_Information_for_Person_Event_Request>' -f $properties.WorkerWid, $properties.Email, $properties.Public, $properties.Primary, $properties.UsageType
+                            </bsvc:Maintain_Contact_Information_for_Person_Event_Request>' -f $function_params.WorkerID, $currentDate, $function_params.Email, $function_params.Public, $function_params.Primary, $function_params.UsageType
 
                 
             $response = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
@@ -664,7 +727,24 @@ function Invoke-WorkdayRequest {
 	}
 
     try {
-		$response = Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -Body $soapEnvelope -Proxy "http://localhost:8888" -ErrorAction Stop
+		$splat = @{
+            Method = "POST"
+            Uri = $uri
+            Headers = $headers
+            Body = $soapEnvelope
+        }
+
+        if($system_params.use_proxy)
+        {
+            $splat["Proxy"] = $system_params.proxy_address
+
+            if($system_params.use_proxy_credentials)
+            {
+                $splat["proxyCredential"] = New-Object System.Management.Automation.PSCredential ($system_params.proxy_username, (ConvertTo-SecureString $system_params.proxy_password -AsPlainText -Force) )
+            }
+        }
+
+        $response = Invoke-RestMethod @splat -ErrorAction Stop
         $result = [xml]$response.Envelope.Body.InnerXml
 	}
 	catch [System.Net.WebException] {
@@ -1155,8 +1235,5 @@ function Check-WorkdayConnection {
     param (
         [string] $SystemParams
     )
-    if($Global:Workers.count -lt 1) {
-        Log info "Worker data not yet collected, collecting now"
-        Idm-WorkersRead -FunctionParams $FunctionParams -SystemParams $SystemParams -CollectionOnly $true
-    }
+     Idm-WorkersRead -SystemParams $SystemParams
 }
