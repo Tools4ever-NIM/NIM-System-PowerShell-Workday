@@ -796,29 +796,157 @@ function ConvertFrom-WorkdayWorkerXml {
     
         Begin {
             $WorkerObjectTemplate = [pscustomobject][ordered]@{
-                WorkerWid             = $null
-                Active                = $null
-                WorkerDescriptor      = $null
-                PreferredName         = $null
-                FirstName             = $null
-                LastName              = $null
-                WorkerType            = $null
-                WorkerId              = $null
-                UserId                = $null
-                NationalId            = $null
-                OtherId               = $null
-                Phone                 = $null
-                Email                 = $null
-                BusinessTitle         = $null
-                JobProfileName        = $null
-                Location              = $null
-                WorkSpace             = $null
-                WorkerTypeReference   = $null
-                Manager_WorkerID      = $null
-                Manager_WorkerType      = $null
-                Company               = $null
-                BusinessUnit          = $null
-                Supervisory           = $null
+                Worker_Reference = @{
+                    WID             = $null
+                    Employee_ID     = $null
+                }
+                Worker_Descriptor            = $null
+                Worker_Data = @{
+                    Worker_ID             = $null
+                    User_ID               = $null
+                }
+                Personal_Data         = @{
+                    Name_Data         = @{
+                        Legal_Name_Data = @{
+                            Name_Detail_Data = @{
+                                Formatted_Name = $null
+                                Reporting_Name = $null
+                                Country_Reference = @{
+                                    WID = $null
+                                    "ISO_3166_1_Alpha_2_Code" = $null
+                                    "ISO_3166_1_Alpha-3_Code" = $null
+                                    "ISO_3166_1_Numeric-3_Code" = $null
+                                }
+                                First_Name = $null
+                                Last_Name = $null
+                            }  
+                        }
+                        Preferred_Name = @{
+                            Name_Detail_Data = @{
+                                Formatted_Name = $null
+                                Reporting_Name = $null
+                                Country_Reference = @{
+                                    WID = $null
+                                    "ISO_3166_1_Alpha_2_Code" = $null
+                                    "ISO_3166_1_Alpha-3_Code" = $null
+                                    "ISO_3166_1_Numeric-3_Code" = $null
+                                }
+                                First_Name = $null
+                                Last_Name = $null
+                            }  
+                        }
+                    }
+                    Blood_Type_Reference = @{
+                        WID = $null
+                        Blood_Type_ID = $null
+                    }
+                    Contact_Data = @{
+                        Address_Data = @{
+                            Country_Reference = @{
+                                WID = $null
+                                "ISO_3166_1_Alpha_2_Code" = $null
+                                "ISO_3166_1_Alpha_3_Code" = $null
+                                "ISO_3166_1_Numeric_3_Code" = $null
+                            }
+                            Last_Modified = $null
+                            Address_Line_1 = $null
+                            Municipality = $null
+                            Country_Region = @{
+                                WID = $null
+                                ID = $null
+                                "ISO_3166_2_Code" = $null
+                            }
+                            Country_Region_Descriptor = $null
+                            Postal_Code = $null
+                            Usage_Data = @{
+                                WID = $null
+                                Public = $null
+                                Primary = $null
+                                Type = $null
+                            }
+                            Number_Of_Days = $null
+                            Address_ID = $null
+                            Effective_Date = $null
+                            Address_Format_Type  = $null
+                            Formatted_Address = $null
+                            Defaulted_Business_Site_Address = $null
+                        }
+                        Email_Address_Data = @{
+                            Email_Address = $null
+                            Usage_Data = @{
+                                WID = $null
+                                Public = $null
+                                Primary = $null
+                                Type = $null
+                            }
+                            Email_Reference = @{
+                                WID = $null
+                                Email_ID = $null
+                            }
+                            ID = $null
+                        }
+                    }
+                    Tobacco_Use = $null
+                }
+                Employment = @{
+                    Jobs = @{
+                        Position = @{
+                            WID = $null
+                            ID = $null
+                            Title = $null
+                            Business_Title = $null
+                            Start_Date = $null
+
+                        }
+                        Worker_Type = @{
+                            WID = $null
+                            Employee_Type_ID = $null
+                        }
+                        Position_Time_Type_Reference = @{
+                            WID = $null
+                            Position_Time_Type_ID = $null
+                        }
+                        Job_Exempt = $null
+                        Scheduled_Weekly_Hours = $null
+                        Default_Weekly_Hours = $null
+                        Working_Time_Value = $null
+                        Full_Time_Equivalent_Percentage = $null
+                        Exclude_from_Headcount = $null
+                        Pay_Rate_Type_Reference = @{
+                            WID = $null
+                            Pay_Rate_Type_ID = $null
+                        }
+                        Job_Profile_Summary_Data = @{
+                            Job_profile_Reference = @{
+                                WID = $null
+                                Job_Profile_ID = $null
+                            }
+                            Job_Exempt = $null
+                            Management_Level_Reference = @{
+                                WID = $null
+                                Management_Level_ID = $null
+                            }
+                            Job_Profile_Name = $null
+                            Work_Shift_Required = $null
+                            Critical_Job = $null
+                        }
+                        Business_Site_Summary_Data = @{
+                            Location_Reference = @{
+                                WID = $null
+                                Location_ID = $null
+                            }
+                            Name = $null
+                            Location_Type_Reference = @{
+                                WID = $null
+                                Location_Type_ID = $null
+                            }
+                            Local_Reference = @{
+                                WID = $null
+                                Locale_ID = $nul
+                            }
+                        }
+                   }
+                }
             }
             $WorkerObjectTemplate.PsObject.TypeNames.Insert(0, "Workday.Worker")
         }
