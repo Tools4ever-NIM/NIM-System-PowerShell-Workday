@@ -174,7 +174,7 @@ $Properties = @{
         @{ name = 'LastName';                              options = @('default')                      }
         @{ name = 'WorkerType';                              options = @('default')                      }
         @{ name = 'WorkerId';                              options = @('default')                      }
-        @{ name = 'UserId';                              options = @('default')                      }
+        @{ name = 'UserId';                              options = @('default','update')                      }
         @{ name = 'NationalId';                              options = @('default')                      }
         @{ name = 'OtherId';                              options = @('default')                      }
         @{ name = 'Phone';                              options = @('default')                      }
@@ -189,6 +189,10 @@ $Properties = @{
         @{ name = 'Company';                              options = @('default')                      }
         @{ name = 'BusinessUnit';                              options = @('default')                      }
         @{ name = 'Supervisory';                              options = @('default')                      }
+        @{ name = 'CostCenter';                              options = @('default')                      }
+        @{ name = 'HireDate';                             options = @('default') }
+        @{ name = 'timeType';                             options = @('default') }
+        @{ name = 'Department';                             options = @('default') }
     )
     WorkerEmail = @(
         @{ name = 'WorkerID';                              options = @('default','key')                      }
@@ -303,6 +307,7 @@ function Idm-WorkersRead {
                     }   
 
                     $Global:WorkersCacheTime = Get-Date
+                    $Global:Workers
                 } else {
                     $Global:Workers
                 }
@@ -312,6 +317,71 @@ function Idm-WorkersRead {
                 Log error "Failed: $_"
                 Write-Error $_
             }
+    }
+
+    Log info "Done"
+}
+
+function Idm-WorkersUpdate {
+    param (
+        # Operations
+        [switch] $GetMeta,
+        # Parameters
+        [string] $SystemParams,
+        [string] $FunctionParams
+    )
+
+    Log info "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
+
+    if ($GetMeta) {
+        #
+        # Get meta data
+        #
+
+        @{
+            semantics = 'update'
+            parameters = @(
+            @{ name = ( $Global:Properties.Worker | Where-Object { $_.options.Contains('key') }).name; allowance = 'mandatory' }
+            $Global:Properties.Worker | Where-Object { !$_.options.Contains('key') -and $_.options.Contains('update') } | ForEach-Object { @{ name = $_.name; allowance = 'optional' }}
+            @{ name = '*'; allowance = 'prohibited' }
+            )
+        }
+    }
+    else {
+        #
+        # Execute function
+        #
+        $system_params   = ConvertFrom-Json2 $SystemParams
+        $function_params = ConvertFrom-Json2 $FunctionParams
+
+        $key = ($Global:Properties.Worker | Where-Object { $_.options.Contains('key') }).name
+
+        try {
+            LogIO info "WorkerUpdate" -In -Email $function_params.Email
+		$currentDate = Get-Date -Format "yyyy-MM-dd";
+            $xmlRequest = '<bsvc:Workday_Account_for_Worker_Update bsvc:version="v30.0" bsvc:Add_Only="false">
+                                <bsvc:Business_Process_Parameters>
+                                    <bsvc:Auto_Complete>true</bsvc:Auto_Complete>
+                                    <bsvc:Run_Now>true</bsvc:Run_Now>
+                                    <bsvc:Comment_Data>
+                                        <bsvc:Comment>Username set by NIM</bsvc:Comment>
+                                    </bsvc:Comment_Data>
+                                </bsvc:Business_Process_Parameters>
+                                <bsvc:Workday_Account_for_Worker_Data >
+                                    <bsvc:User_Name>{1}</bsvc:User_Name>
+                                </bsvc:Workday_Account_for_Worker_Data >
+                            </bsvc:Workday_Account_for_Worker_Update>' -f $function_params.WorkerID, $currentDate, $function_params.UserId
+
+                
+            $response = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
+		$rv = $true
+		LogIO info "WorkersEmail" -Out $rv
+		Log info ($function_params | ConvertTo-Json)
+        }
+        catch {
+            Log error "Failed: $_"
+            Write-Error $_
+        }
     }
 
     Log info "Done"
@@ -397,7 +467,8 @@ function Idm-WorkersEmailsUpdate {
         $key = ($Global:Properties.WorkerEmail | Where-Object { $_.options.Contains('key') }).name
 
         try {
-            $currentDate = Get-Date -Format "yyyy-MM-dd";
+            LogIO info "WorkerEmailUpdate" -In -Email $function_params.Email
+		$currentDate = Get-Date -Format "yyyy-MM-dd";
             $xmlRequest = '<bsvc:Maintain_Contact_Information_for_Person_Event_Request bsvc:version="v30.0" bsvc:Add_Only="false">
                                 <bsvc:Business_Process_Parameters>
                                     <bsvc:Auto_Complete>true</bsvc:Auto_Complete>
@@ -428,6 +499,9 @@ function Idm-WorkersEmailsUpdate {
 
                 
             $response = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
+		$rv = $true
+		LogIO info "WorkersEmail" -Out $rv
+		Log info ($function_params | ConvertTo-Json)
         }
         catch {
             Log error "Failed: $_"
@@ -819,6 +893,10 @@ function ConvertFrom-WorkdayWorkerXml {
                 Company               = $null
                 BusinessUnit          = $null
                 Supervisory           = $null
+                CostCenter          = $null
+                HireDate  = $null
+                timeType = $null
+                Department = $null
             }
             $WorkerObjectTemplate.PsObject.TypeNames.Insert(0, "Workday.Worker")
         }
@@ -845,6 +923,7 @@ function ConvertFrom-WorkdayWorkerXml {
                     
                     # The methods SelectNodes and SelectSingleNode have access to the entire XML document and require anchoring with "./" to work as expected.
                     $workerEmploymentData = $x.SelectSingleNode('./wd:Worker_Data/wd:Employment_Data', $Global:NM)
+                    $workerOrganizationData = $x.SelectSingleNode('./wd:Worker_Data/wd:Organization_Data',$Global:NM);
                     if ($null -ne $workerEmploymentData) {
                         $o.Active = $workerEmploymentData.Worker_Status_Data.Active -eq '1'
                     }
@@ -858,14 +937,18 @@ function ConvertFrom-WorkdayWorkerXml {
 
                         $o.BusinessTitle = $workerJobData.Position_Data.Business_Title
                         $o.JobProfileName = $workerJobData.Position_Data.Job_Profile_Summary_Data.Job_Profile_Name
+                        $o.HireDate = $workerJobData.Position_Data.Start_Date
                         $o.Location = $workerJobData.SelectNodes('./wd:Position_Data/wd:Business_Site_Summary_Data/wd:Name', $Global:NM) | Select-Object -ExpandProperty InnerText -First 1 -ErrorAction SilentlyContinue
                         $o.WorkSpace = $workerJobData.SelectNodes('./wd:Position_Data/wd:Work_Space__Reference/wd:ID[@wd:type="Location_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -First 1 -ErrorAction SilentlyContinue
                         $o.WorkerTypeReference = $workerJobData.SelectNodes('./wd:Position_Data/wd:Worker_Type_Reference/wd:ID[@wd:type="Employee_Type_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -First 1 -ErrorAction SilentlyContinue
                         $o.Manager_WorkerType = $manager.WorkerType
                         $o.Manager_WorkerID = $manager.WorkerID
+                        $o.Department=$workerOrganizationData.SelectNodes('./wd:Worker_Organization_Data/wd:Organization_Data[wd:Organization_Type_Reference/wd:ID[@wd:type="Organization_Type_ID" and . = "Supervisory"]]', $Global:NM) | Select-Object -ExpandProperty Organization_Name -First 1 -ErrorAction SilentlyContinue
                         $o.Company = $workerJobData.SelectNodes('./wd:Position_Organizations_Data/wd:Position_Organization_Data/wd:Organization_Data[wd:Organization_Type_Reference/wd:ID[@wd:type="Organization_Type_ID" and . = "COMPANY"]]', $Global:NM) | Select-Object -ExpandProperty Organization_Name -First 1 -ErrorAction SilentlyContinue
+                        $o.CostCenter = $workerJobData.SelectNodes('./wd:Position_Organizations_Data/wd:Position_Organization_Data/wd:Organization_Data[wd:Organization_Type_Reference/wd:ID[@wd:type="Organization_Type_ID" and . = "Cost_Center"]]', $Global:NM) | Select-Object -ExpandProperty Organization_Name -First 1 -ErrorAction SilentlyContinue
                         $o.BusinessUnit = $workerJobData.SelectNodes('./wd:Position_Organizations_Data/wd:Position_Organization_Data/wd:Organization_Data[wd:Organization_Type_Reference/wd:ID[@wd:type="Organization_Type_ID" and . = "BUSINESS_UNIT"]]', $Global:NM) | Select-Object -ExpandProperty Organization_Name -First 1 -ErrorAction SilentlyContinue
                         $o.Supervisory = $workerJobData.SelectNodes('./wd:Position_Organizations_Data/wd:Position_Organization_Data/wd:Organization_Data[wd:Organization_Type_Reference/wd:ID[@wd:type="Organization_Type_ID" and . = "SUPERVISORY"]]', $Global:NM) | Select-Object -ExpandProperty Organization_Name -First 1 -ErrorAction SilentlyContinue
+                        $o.timeType = $workerJobData.Position_Data.Position_Time_Type_Reference.ID[1].'#text'
                     }
 
 
