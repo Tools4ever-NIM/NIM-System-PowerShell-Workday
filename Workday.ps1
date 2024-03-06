@@ -2,6 +2,21 @@
 # Workday.ps1 - Workday Web Services API (SOAP)
 #
 
+<#
+# Maybe needed to trust proxy certificate.
+Add-Type @"
+using System.Net;
+using System.Security.Cryptography.X509Certificates;
+public class TrustAllCertsPolicy : ICertificatePolicy {
+    public bool CheckValidationResult(
+        ServicePoint srvPoint, X509Certificate certificate,
+        WebRequest request, int certificateProblem) {
+        return true;
+    }
+}
+"@
+[System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+#>
 
 $Log_MaskableKeys = @(
     # Put a comma-separated list of attribute names here, whose value should be masked before 
@@ -96,7 +111,7 @@ function Idm-SystemInfo {
                 type = 'textbox'
                 label = 'Proxy Address'
                 description = 'Address of the proxy server'
-                value = 'http://localhost:8888'
+                value = 'http://127.0.0.1:8888'
                 disabled = '!use_proxy'
                 hidden = '!use_proxy'
             }
@@ -173,7 +188,7 @@ $Properties = @{
         @{ name = 'FirstName';                              options = @('default')                      }
         @{ name = 'LastName';                              options = @('default')                      }
         @{ name = 'WorkerType';                              options = @('default')                      }
-        @{ name = 'WorkerId';                              options = @('default')                      }
+        @{ name = 'WorkerId';                              options = @('default','update')                      }
         @{ name = 'UserId';                              options = @('default','update')                      }
         @{ name = 'NationalId';                              options = @('default')                      }
         @{ name = 'OtherId';                              options = @('default')                      }
@@ -359,23 +374,23 @@ function Idm-WorkersUpdate {
         try {
             LogIO info "WorkerUpdate" -In -Email $function_params.Email
 		$currentDate = Get-Date -Format "yyyy-MM-dd";
-            $xmlRequest = '<bsvc:Workday_Account_for_Worker_Update bsvc:version="v30.0" bsvc:Add_Only="false">
-                                <bsvc:Business_Process_Parameters>
-                                    <bsvc:Auto_Complete>true</bsvc:Auto_Complete>
-                                    <bsvc:Run_Now>true</bsvc:Run_Now>
-                                    <bsvc:Comment_Data>
-                                        <bsvc:Comment>Username set by NIM</bsvc:Comment>
-                                    </bsvc:Comment_Data>
-                                </bsvc:Business_Process_Parameters>
-                                <bsvc:Workday_Account_for_Worker_Data >
-                                    <bsvc:User_Name>{1}</bsvc:User_Name>
-                                </bsvc:Workday_Account_for_Worker_Data >
-                            </bsvc:Workday_Account_for_Worker_Update>' -f $function_params.WorkerID, $currentDate, $function_params.UserId
+            $xmlRequest = '<bsvc:Workday_Account_for_Worker_Update bsvc:version="v41.2">
+			<bsvc:Worker_Reference>
+				<bsvc:Employee_Reference>
+					<bsvc:Integration_ID_Reference>
+						<bsvc:ID bsvc:System_ID="WD-EMPLID">{0}</bsvc:ID>
+					</bsvc:Integration_ID_Reference>
+				</bsvc:Employee_Reference>
+			</bsvc:Worker_Reference>
+			<bsvc:Workday_Account_for_Worker_Data>
+				<bsvc:User_Name>{1}</bsvc:User_Name>
+			</bsvc:Workday_Account_for_Worker_Data>
+		</bsvc:Workday_Account_for_Worker_Update>' -f $function_params.WorkerID, $function_params.UserId
 
                 
             $response = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
 		$rv = $true
-		LogIO info "WorkersEmail" -Out $rv
+		LogIO info "WorkersUpdate" -Out $rv
 		Log info ($function_params | ConvertTo-Json)
         }
         catch {
