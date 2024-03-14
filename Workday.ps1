@@ -832,7 +832,12 @@ function Invoke-WorkdayRequest {
                 $splat["proxyCredential"] = New-Object System.Management.Automation.PSCredential ($system_params.proxy_username, (ConvertTo-SecureString $system_params.proxy_password -AsPlainText -Force) )
             }
         }
-
+		
+		LogIO debug "Workday POST call: $($splat.Uri)"
+		Log debug "Workday POST call: $($splat.Uri)"
+		
+		#LogIO debug "Workday POST body: $($splat.Body)"
+		#Log debug "Workday POST body: $($splat.Body)"
         $response = Invoke-RestMethod @splat -ErrorAction Stop
         $result = [xml]$response.Envelope.Body.InnerXml
 	}
@@ -1333,5 +1338,5 @@ function Check-WorkdayConnection {
     param (
         [string] $SystemParams
     )
-     Idm-WorkersRead -SystemParams $SystemParams
+     Idm-WorkersRead -SystemParams $SystemParams | Out-Null
 }
