@@ -2,25 +2,10 @@
 # Workday.ps1 - Workday Web Services API (SOAP)
 #
 
-<#
-# Maybe needed to trust proxy certificate.
-Add-Type @"
-using System.Net;
-using System.Security.Cryptography.X509Certificates;
-public class TrustAllCertsPolicy : ICertificatePolicy {
-    public bool CheckValidationResult(
-        ServicePoint srvPoint, X509Certificate certificate,
-        WebRequest request, int certificateProblem) {
-        return true;
-    }
-}
-"@
-[System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-#>
 
 $Log_MaskableKeys = @(
-    # Put a comma-separated list of attribute names here, whose value should be masked before 
-    'Password'
+    'password',
+	"proxy_password"
 )
 
 $Global:NM = New-Object System.Xml.XmlNamespaceManager -ArgumentList (New-Object System.Xml.NameTable)
@@ -163,7 +148,27 @@ function Idm-SystemInfo {
     }
 
     if ($TestConnection) {
-        
+			 $xmlRequest = '<bsvc:Get_Workers_Request bsvc:version="v30.0">
+                                        <bsvc:Response_Filter>
+                                            <bsvc:Page>{0}</bsvc:Page>
+                                            <bsvc:Count>{1}</bsvc:Count>
+                                        </bsvc:Response_Filter>
+                                        <bsvc:Request_Criteria>
+                                            <bsvc:Exclude_Inactive_Workers>true</bsvc:Exclude_Inactive_Workers>
+                                        </bsvc:Request_Criteria>
+                                        <bsvc:Response_Group>
+                                            <bsvc:Include_Reference>true</bsvc:Include_Reference>
+                                            <bsvc:Include_Personal_Information>true</bsvc:Include_Personal_Information>
+                                            <bsvc:Include_Employment_Information>true</bsvc:Include_Employment_Information>
+                                            <bsvc:Include_Compensation>true</bsvc:Include_Compensation>
+                                            <bsvc:Include_Organizations>true</bsvc:Include_Organizations>
+                                            <bsvc:Include_Roles>true</bsvc:Include_Roles>
+                                            <bsvc:Include_Worker_Documents>true</bsvc:Include_Worker_Documents>
+                                        </bsvc:Response_Group>
+                                    </bsvc:Get_Workers_Request>' -f 1, 1
+
+                    
+                        $response = Invoke-WorkdayRequest -SystemParams (ConvertFrom-Json2 $ConnectionParams) -Body $xmlRequest -Namespace "Human_Resources"
     }
 
     if ($Configuration) {
@@ -825,7 +830,20 @@ function Invoke-WorkdayRequest {
 
         if($system_params.use_proxy)
         {
-            $splat["Proxy"] = $system_params.proxy_address
+                                Add-Type @"
+using System.Net;
+using System.Security.Cryptography.X509Certificates;
+public class TrustAllCertsPolicy : ICertificatePolicy {
+    public bool CheckValidationResult(
+        ServicePoint srvPoint, X509Certificate certificate,
+        WebRequest request, int certificateProblem) {
+        return true;
+    }
+}
+"@
+[System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+
+			$splat["Proxy"] = $system_params.proxy_address
 
             if($system_params.use_proxy_credentials)
             {
