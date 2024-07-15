@@ -2,7 +2,6 @@
 # Workday.ps1 - Workday Web Services API (SOAP)
 #
 
-
 $Log_MaskableKeys = @(
     'password',
 	"proxy_password"
@@ -42,7 +41,7 @@ function Idm-SystemInfo {
                 type = 'textbox'
                 label = 'Hostname'
                 description = 'Hostname for Web Services'
-                value = 'wd2-impl-services1.workday.com'
+                value = 'wd5-services1.myworkday.com'
             }
             @{
                 name = 'tenantid'
@@ -55,7 +54,6 @@ function Idm-SystemInfo {
                 name = 'username'
                 type = 'textbox'
                 label = 'Username'
-                label_indent = $true
                 description = 'Username account'
                 value = ''
             }
@@ -64,7 +62,6 @@ function Idm-SystemInfo {
                 type = 'textbox'
                 password = $true
                 label = 'Password'
-                label_indent = $true
                 description = 'User account password'
                 value = ''
             }
@@ -72,9 +69,8 @@ function Idm-SystemInfo {
                 name = 'version'
                 type = 'textbox'
                 label = 'Version'
-                label_indent = $true
-                description = 'AXL API Version'
-                value = '39.2'
+                description = 'API Version'
+                value = '42.1'
             },
             @{
                 name = 'pagesize'
@@ -87,9 +83,9 @@ function Idm-SystemInfo {
             @{
                 name = 'use_proxy'
                 type = 'checkbox'
-                label = 'Use Proxy'
-                description = 'Use Proxy server for requets'
-                value = $false                  # Default value of checkbox item
+                label = 'Use Proxy Credentials'
+                description = 'Use Proxy server for request'
+                value = $false
             }
             @{
                 name = 'proxy_address'
@@ -104,7 +100,7 @@ function Idm-SystemInfo {
                 name = 'use_proxy_credentials'
                 type = 'checkbox'
                 label = 'Use Proxy'
-                description = 'Use Proxy server for requets'
+                description = 'Use Credentials for proxy'
                 value = $false
                 disabled = '!use_proxy'
                 hidden = '!use_proxy'
@@ -154,7 +150,7 @@ function Idm-SystemInfo {
                                             <bsvc:Count>{1}</bsvc:Count>
                                         </bsvc:Response_Filter>
                                         <bsvc:Request_Criteria>
-                                            <bsvc:Exclude_Inactive_Workers>true</bsvc:Exclude_Inactive_Workers>
+                                            <bsvc:Exclude_Inactive_Workers>false</bsvc:Exclude_Inactive_Workers>
                                         </bsvc:Request_Criteria>
                                         <bsvc:Response_Group>
                                             <bsvc:Include_Reference>true</bsvc:Include_Reference>
@@ -167,7 +163,6 @@ function Idm-SystemInfo {
                                         </bsvc:Response_Group>
                                     </bsvc:Get_Workers_Request>' -f 1, 1
 
-                    
                         $response = Invoke-WorkdayRequest -SystemParams (ConvertFrom-Json2 $ConnectionParams) -Body $xmlRequest -Namespace "Human_Resources"
     }
 
@@ -274,7 +269,6 @@ function Idm-WorkersRead {
         $function_params = ConvertFrom-Json2 $FunctionParams
 
         $properties = $function_params.properties
-
         if ($properties.length -eq 0) {
             $properties = ($Global:Properties.$Class | Where-Object { $_.options.Contains('default') }).name
         }
@@ -282,6 +276,8 @@ function Idm-WorkersRead {
         # Assure key is the first column
         $key = ($Global:Properties.$Class | Where-Object { $_.options.Contains('key') }).name
         $properties = @($key) + @($properties | Where-Object { $_ -ne $key })
+
+		$exclude_inactive_workers = if ($function_params.exclude_inactive_workers) { "true" } else { "false" }
 
         try { 
             if(     $Global:Workers.count -lt 1 `
@@ -291,15 +287,16 @@ function Idm-WorkersRead {
                     $totalPages = 1
                     
                     while($page -lt $totalPages) {
-                        $page++
+						$page++
 
                         $xmlRequest = '<bsvc:Get_Workers_Request bsvc:version="v30.0">
                                         <bsvc:Response_Filter>
                                             <bsvc:Page>{0}</bsvc:Page>
                                             <bsvc:Count>{1}</bsvc:Count>
+											<bsvc:As_Of_Effective_Date>{2}</bsvc:As_Of_Effective_Date>
                                         </bsvc:Response_Filter>
                                         <bsvc:Request_Criteria>
-                                            <bsvc:Exclude_Inactive_Workers>true</bsvc:Exclude_Inactive_Workers>
+                                            <bsvc:Exclude_Inactive_Workers>{3}</bsvc:Exclude_Inactive_Workers>
                                         </bsvc:Request_Criteria>
                                         <bsvc:Response_Group>
                                             <bsvc:Include_Reference>true</bsvc:Include_Reference>
@@ -310,7 +307,7 @@ function Idm-WorkersRead {
                                             <bsvc:Include_Roles>true</bsvc:Include_Roles>
                                             <bsvc:Include_Worker_Documents>true</bsvc:Include_Worker_Documents>
                                         </bsvc:Response_Group>
-                                    </bsvc:Get_Workers_Request>' -f $page, $system_params.pagesize
+                                    </bsvc:Get_Workers_Request>' -f $page, $system_params.pagesize, $function_params.as_of_effective_date, $exclude_inactive_workers
 
                     
                         $response = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
@@ -321,9 +318,7 @@ function Idm-WorkersRead {
 
                         foreach($item in ($response | ConvertFrom-WorkdayWorkerXml) ) {
                             [void]$Global:Workers.Add($item)
-                        }
-
-                        
+                        }                     
                     }   
 
                     $Global:WorkersCacheTime = Get-Date
@@ -378,7 +373,8 @@ function Idm-WorkersUpdate {
 
         try {
             LogIO info "WorkerUpdate" -In -Email $function_params.Email
-		$currentDate = Get-Date -Format "yyyy-MM-dd";
+		    $currentDate = Get-Date -Format "yyyy-MM-dd";
+            
             $xmlRequest = '<bsvc:Workday_Account_for_Worker_Update bsvc:version="v41.2">
 			<bsvc:Worker_Reference>
 				<bsvc:Employee_Reference>
@@ -390,13 +386,14 @@ function Idm-WorkersUpdate {
 			<bsvc:Workday_Account_for_Worker_Data>
 				<bsvc:User_Name>{1}</bsvc:User_Name>
 			</bsvc:Workday_Account_for_Worker_Data>
-		</bsvc:Workday_Account_for_Worker_Update>' -f $function_params.WorkerID, $function_params.UserId
+		    </bsvc:Workday_Account_for_Worker_Update>' -f $function_params.WorkerID, $function_params.UserId
 
                 
             $response = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
-		$rv = $true
-		LogIO info "WorkersUpdate" -Out $rv
-		Log info ($function_params | ConvertTo-Json)
+            $rv = $true
+
+            LogIO info "WorkersUpdate" -Out $rv
+            Log info ($function_params | ConvertTo-Json)
         }
         catch {
             Log error "Failed: $_"
@@ -421,7 +418,7 @@ function Idm-WorkersEmailsRead {
         Get-ClassMetaData -SystemParams $SystemParams -Class $Class
     }
     else {
-        Check-WorkdayConnection -SystemParams $SystemParams
+        Check-WorkdayConnection -SystemParams $SystemParams -FunctionParams $FunctionParams
         
         $system_params   = ConvertFrom-Json2 $SystemParams
         $function_params = ConvertFrom-Json2 $FunctionParams
@@ -624,7 +621,7 @@ function Idm-WorkersDocumentRead {
         Get-ClassMetaData -SystemParams $SystemParams -Class $Class
     }
     else {
-        Check-WorkdayConnection -SystemParams $SystemParams
+        Check-WorkdayConnection -SystemParams $SystemParams -FunctionParams $FunctionParams
         
         $system_params   = ConvertFrom-Json2 $SystemParams
         $function_params = ConvertFrom-Json2 $FunctionParams
@@ -668,7 +665,7 @@ function Idm-WorkersNationalIdRead {
         Get-ClassMetaData -SystemParams $SystemParams -Class $Class
     }
     else {
-        Check-WorkdayConnection -SystemParams $SystemParams
+        Check-WorkdayConnection -SystemParams $SystemParams -FunctionParams $FunctionParams
         
         $system_params   = ConvertFrom-Json2 $SystemParams
         $function_params = ConvertFrom-Json2 $FunctionParams
@@ -712,7 +709,7 @@ function Idm-WorkersOtherIdRead {
         Get-ClassMetaData -SystemParams $SystemParams -Class $Class
     }
     else {
-        Check-WorkdayConnection -SystemParams $SystemParams
+        Check-WorkdayConnection -SystemParams $SystemParams -FunctionParams $FunctionParams
         
         $system_params   = ConvertFrom-Json2 $SystemParams
         $function_params = ConvertFrom-Json2 $FunctionParams
@@ -756,7 +753,7 @@ function Idm-WorkersPhoneRead {
         Get-ClassMetaData -SystemParams $SystemParams -Class $Class
     }
     else {
-        Check-WorkdayConnection -SystemParams $SystemParams
+        Check-WorkdayConnection -SystemParams $SystemParams -FunctionParams $FunctionParams
         
         $system_params   = ConvertFrom-Json2 $SystemParams
         $function_params = ConvertFrom-Json2 $FunctionParams
@@ -828,7 +825,7 @@ function Invoke-WorkdayRequest {
             Body = $soapEnvelope
         }
 
-        if($system_params.use_proxy)
+        if($SystemParams.use_proxy)
         {
                                 Add-Type @"
 using System.Net;
@@ -843,11 +840,11 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 "@
 [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
 
-			$splat["Proxy"] = $system_params.proxy_address
+			$splat["Proxy"] = $SystemParams.proxy_address
 
-            if($system_params.use_proxy_credentials)
+            if($SystemParams.use_proxy_credentials)
             {
-                $splat["proxyCredential"] = New-Object System.Management.Automation.PSCredential ($system_params.proxy_username, (ConvertTo-SecureString $system_params.proxy_password -AsPlainText -Force) )
+                $splat["proxyCredential"] = New-Object System.Management.Automation.PSCredential ($SystemParams.proxy_username, (ConvertTo-SecureString $SystemParams.proxy_password -AsPlainText -Force) )
             }
         }
 		
@@ -858,6 +855,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 		#Log debug "Workday POST body: $($splat.Body)"
         $response = Invoke-RestMethod @splat -ErrorAction Stop
         $result = [xml]$response.Envelope.Body.InnerXml
+				
 	}
 	catch [System.Net.WebException] {
        
@@ -1305,8 +1303,26 @@ function Get-ClassMetaData {
         [string] $SystemParams,
         [string] $Class
     )
+    $out = @()
     
-    @(
+	if($Class -eq 'Worker') { 
+		 $out += @(
+			@{
+				name = 'exclude_inactive_workers'
+				type = 'checkbox'
+				label = 'Exclude Inactive Workers'
+				value = $false
+			}
+			@{
+				name = 'as_of_effective_date'
+				type = 'textbox'
+				label = 'As Of Effective Date'
+				value = '9999-12-31'
+			}
+		)
+	}
+	
+	$out += @(
         @{
             name = 'properties'
             type = 'grid'
@@ -1350,11 +1366,14 @@ function Get-ClassMetaData {
             value = ($Global:Properties.$Class | Where-Object { $_.options.Contains('default') }).name
         }
     )
+
+	$out
 }
 
 function Check-WorkdayConnection { 
     param (
-        [string] $SystemParams
+        [string] $SystemParams,
+		[string] $FunctionParams
     )
-     Idm-WorkersRead -SystemParams $SystemParams | Out-Null
+     Idm-WorkersRead -GetMeta $false -SystemParams $SystemParams -FunctionParams $FunctionParams | Out-Null
 }
