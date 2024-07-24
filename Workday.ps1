@@ -1,4 +1,3 @@
-# version: 1.3
 #
 # Workday.ps1 - Workday Web Services API (SOAP)
 #
@@ -221,6 +220,10 @@ $Properties = @{
         @{ name = 'HireDate';                             options = @('default') }
         @{ name = 'timeType';                             options = @('default') }
         @{ name = 'Department';                             options = @('default') }
+		@{ name = 'Terminated';                             options = @('default') }
+		@{ name = 'Termination_Date`';                             options = @('default') }
+		@{ name = 'Active_Status_Date';                             options = @('default') }
+		@{ name = 'Rehired';                             options = @('default') }
     )
     WorkerEmail = @(
         @{ name = 'WorkerID';                              options = @('default','key')                      }
@@ -946,6 +949,10 @@ function ConvertFrom-WorkdayWorkerXml {
                 HireDate  = $null
                 timeType = $null
                 Department = $null
+				Terminated= $null
+				Termination_Date = $null
+				Active_Status_Date = $null
+				Retired = $null
             }
             $WorkerObjectTemplate.PsObject.TypeNames.Insert(0, "Workday.Worker")
         }
@@ -975,6 +982,10 @@ function ConvertFrom-WorkdayWorkerXml {
                     $workerOrganizationData = $x.SelectSingleNode('./wd:Worker_Data/wd:Organization_Data',$Global:NM);
                     if ($null -ne $workerEmploymentData) {
                         $o.Active = $workerEmploymentData.Worker_Status_Data.Active -eq '1'
+						$o.Terminated = $workerEmploymentData.Worker_Status_Data.Terminated
+						$o.Termination_Date = $workerEmploymentData.Worker_Status_Data.Termination_Date
+						$o.Active_Status_Date = $workerEmploymentData.Worker_Status_Data.Active_Status_Date
+						$o.Retired = $workerEmploymentData.Worker_Status_Data.Retired
                     }
                     
                     $workerJobData = $x.SelectSingleNode('./wd:Worker_Data/wd:Employment_Data/wd:Worker_Job_Data', $Global:NM)
