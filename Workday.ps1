@@ -32,7 +32,7 @@ function Idm-SystemInfo {
         [string] $ConnectionParams
     )
 
-    Log info "-Connection=$Connection -TestConnection=$TestConnection -Configuration=$Configuration -ConnectionParams='$ConnectionParams'"
+    Log verbose "-Connection=$Connection -TestConnection=$TestConnection -Configuration=$Configuration -ConnectionParams='$ConnectionParams'"
 
     if ($Connection) {
         @(
@@ -182,7 +182,7 @@ function Idm-SystemInfo {
         @()
     }
 
-    Log info "Done"
+    Log verbose "Done"
 }
 
 function Idm-OnUnload {
@@ -273,7 +273,7 @@ function Idm-WorkersRead {
         [string] $FunctionParams
     )
     $Class = "Worker"
-    Log info "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
+    Log verbose "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
 
     if ($GetMeta) {
 
@@ -330,7 +330,7 @@ function Idm-WorkersRead {
                         $totalPages = $response.Get_Workers_Response.Response_Results.Total_Pages
                         
                         LogIO info "Page $($Page) of $($totalPages) - Record Count $($response.Get_Workers_Response.Response_Data.Worker.count)"
-                        Log info "Page $($Page) of $($totalPages) - Record Count $($response.Get_Workers_Response.Response_Data.Worker.count)"
+                        Log verbose "Page $($Page) of $($totalPages) - Record Count $($response.Get_Workers_Response.Response_Data.Worker.count)"
 
                         foreach($item in ($response | ConvertFrom-WorkdayWorkerXml) ) {
                             [void]$Global:Workers.Add($item)
@@ -350,7 +350,7 @@ function Idm-WorkersRead {
             }
     }
 
-    Log info "Done"
+    Log verbose "Done"
 }
 
 function Idm-WorkersUpdate {
@@ -362,7 +362,7 @@ function Idm-WorkersUpdate {
         [string] $FunctionParams
     )
 
-    Log info "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
+    Log verbose "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
 
     if ($GetMeta) {
         #
@@ -409,7 +409,7 @@ function Idm-WorkersUpdate {
             $rv = $true
 
             LogIO info "WorkersUpdate" -Out $rv
-            Log info ($function_params | ConvertTo-Json)
+            Log verbose ($function_params | ConvertTo-Json)
         }
         catch {
             Log error "Failed: $_"
@@ -417,7 +417,7 @@ function Idm-WorkersUpdate {
         }
     }
 
-    Log info "Done"
+    Log verbose "Done"
 }
 
 function Idm-WorkersEmailsRead {
@@ -427,7 +427,7 @@ function Idm-WorkersEmailsRead {
         [string] $FunctionParams
     )
     $Class = "WorkerEmail"
-    Log info "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
+    Log verbose "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
 
     if ($GetMeta) {
 
@@ -461,7 +461,7 @@ function Idm-WorkersEmailsRead {
             }
     }
 
-    Log info "Done"
+    Log verbose "Done"
 }
 
 function Idm-WorkersEmailsUpdate {
@@ -473,7 +473,7 @@ function Idm-WorkersEmailsUpdate {
         [string] $FunctionParams
     )
 
-    Log info "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
+    Log verbose "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
 
     if ($GetMeta) {
         #
@@ -534,7 +534,7 @@ function Idm-WorkersEmailsUpdate {
             $response = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
 		$rv = $true
 		LogIO info "WorkersEmail" -Out $rv
-		Log info ($function_params | ConvertTo-Json)
+		Log verbose ($function_params | ConvertTo-Json)
         }
         catch {
             Log error "Failed: $_"
@@ -542,7 +542,7 @@ function Idm-WorkersEmailsUpdate {
         }
     }
 
-    Log info "Done"
+    Log verbose "Done"
 }
 
 function Idm-WorkersEmailsCreate {
@@ -554,7 +554,7 @@ function Idm-WorkersEmailsCreate {
         [string] $FunctionParams
     )
 
-    Log info "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
+    Log verbose "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
 
     if ($GetMeta) {
         #
@@ -620,7 +620,7 @@ function Idm-WorkersEmailsCreate {
         }
     }
 
-    Log info "Done"
+    Log verbose "Done"
 }
 
 function Idm-WorkersDocumentRead {
@@ -630,7 +630,7 @@ function Idm-WorkersDocumentRead {
         [string] $FunctionParams
     )
     $Class = "WorkerDocument"
-    Log info "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
+    Log verbose "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
 
     if ($GetMeta) {
 
@@ -664,7 +664,7 @@ function Idm-WorkersDocumentRead {
             }
     }
 
-    Log info "Done"
+    Log verbose "Done"
 }
 
 function Idm-WorkersNationalIdRead {
@@ -674,7 +674,7 @@ function Idm-WorkersNationalIdRead {
         [string] $FunctionParams
     )
     $Class = "WorkerNationalId"
-    Log info "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
+    Log verbose "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
 
     if ($GetMeta) {
 
@@ -708,7 +708,7 @@ function Idm-WorkersNationalIdRead {
             }
     }
 
-    Log info "Done"
+    Log verbose "Done"
 }
 
 function Idm-WorkersOtherIdRead {
@@ -718,7 +718,7 @@ function Idm-WorkersOtherIdRead {
         [string] $FunctionParams
     )
     $Class = "WorkerOtherId"
-    Log info "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
+    Log verbose "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
 
     if ($GetMeta) {
 
@@ -752,7 +752,7 @@ function Idm-WorkersOtherIdRead {
             }
     }
 
-    Log info "Done"
+    Log verbose "Done"
 }
 
 function Idm-WorkersPhoneRead {
@@ -762,7 +762,7 @@ function Idm-WorkersPhoneRead {
         [string] $FunctionParams
     )
     $Class = "WorkerPhone"
-    Log info "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
+    Log verbose "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
 
     if ($GetMeta) {
 
@@ -796,7 +796,7 @@ function Idm-WorkersPhoneRead {
             }
     }
 
-    Log info "Done"
+    Log verbose "Done"
 }
 
 function Invoke-WorkdayRequest {
@@ -1124,7 +1124,7 @@ function Get-WorkdayWorkerEmail {
 
     if ($WorkerXml -eq $null) {
         
-        Log info 'Unable to get Email information, Worker not found.'
+        Log verbose 'Unable to get Email information, Worker not found.'
         return
     }
 
