@@ -579,7 +579,6 @@ function Idm-WorkersEmailsUpdate {
                 $Global:Properties.WorkerEmail | ForEach-Object {
                     @{ name = $_.name; allowance = 'mandatory' }
                 }    
-            #@{ name = '*';                     allowance = 'mandatory'   }
             )
         }
     }
@@ -660,7 +659,6 @@ function Idm-WorkersEmailsCreate {
                 $Global:Properties.WorkerEmail | ForEach-Object {
                     @{ name = $_.name; allowance = 'mandatory' }
                 }    
-            #@{ name = '*';                     allowance = 'mandatory'   }
             )
         }
     }
@@ -1115,9 +1113,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 		
 		LogIO debug "Workday POST call: $($splat.Uri)"
 		Log debug "Workday POST call: $($splat.Uri)"
-		
-		#LogIO debug "Workday POST body: $($splat.Body)"
-		#Log debug "Workday POST body: $($splat.Body)"
+
         $response = Invoke-RestMethod @splat -ErrorAction Stop
         $result = [xml]$response.Envelope.Body.InnerXml
 				
