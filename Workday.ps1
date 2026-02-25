@@ -18,6 +18,9 @@ $Global:WorkersDocument = [System.Collections.ArrayList]@()
 $Global:WorkersNationalId = [System.Collections.ArrayList]@()
 $Global:WorkersOtherId = [System.Collections.ArrayList]@()
 $Global:WorkersPhone = [System.Collections.ArrayList]@()
+$Global:WorkersAddress = [System.Collections.ArrayList]@()
+$Global:WorkersCompensation = [System.Collections.ArrayList]@()
+$Global:WorkersRole = [System.Collections.ArrayList]@()
 
 #
 # System functions
@@ -224,7 +227,33 @@ $Properties = @{
 		@{ name = 'Termination_Date`';                             options = @('default') }
 		@{ name = 'Active_Status_Date';                             options = @('default') }
 		@{ name = 'Rehired';                             options = @('default') }
-        @{ name = 'PositionJobFamily';                   options = @('default') }
+        @{ name = 'PositionJobFamily';                        options = @('default') }
+        @{ name = 'Salutation';                               options = @('default') }
+        @{ name = 'MiddleName';                               options = @('default') }
+        @{ name = 'Legal_FirstName';                          options = @('default') }
+        @{ name = 'Legal_MiddleName';                         options = @('default') }
+        @{ name = 'Legal_LastName';                           options = @('default') }
+        @{ name = 'Date_Of_Birth';                            options = @('default') }
+        @{ name = 'Gender';                                   options = @('default') }
+        @{ name = 'Marital_Status';                           options = @('default') }
+        @{ name = 'Country_of_Birth';                         options = @('default') }
+        @{ name = 'City_of_Birth';                            options = @('default') }
+        @{ name = 'Position_ID';                              options = @('default') }
+        @{ name = 'Position_Title';                           options = @('default') }
+        @{ name = 'Scheduled_Weekly_Hours';                   options = @('default') }
+        @{ name = 'Default_Weekly_Hours';                     options = @('default') }
+        @{ name = 'FTE_Percent';                              options = @('default') }
+        @{ name = 'Pay_Rate_Type';                            options = @('default') }
+        @{ name = 'Job_Exempt';                               options = @('default') }
+        @{ name = 'End_Employment_Date';                      options = @('default') }
+        @{ name = 'On_Leave';                                 options = @('default') }
+        @{ name = 'Leave_Type';                               options = @('default') }
+        @{ name = 'Compensation_Grade';                       options = @('default') }
+        @{ name = 'Compensation_Package';                     options = @('default') }
+        @{ name = 'Compensation_Effective_Date';              options = @('default') }
+        @{ name = 'Primary_Compensation_Amount';              options = @('default') }
+        @{ name = 'Primary_Compensation_Currency';            options = @('default') }
+        @{ name = 'Primary_Compensation_Frequency';           options = @('default') }
     )
     WorkerEmail = @(
         @{ name = 'WorkerID';                              options = @('default','key')                      }
@@ -262,6 +291,31 @@ $Properties = @{
         @{ name = 'Extension';                              options = @('default')                      }
         @{ name = 'Primary';                              options = @('default')                      }
         @{ name = 'Public';                              options = @('default')                      }
+    )
+    WorkerAddress = @(
+        @{ name = 'WorkerID';      options = @('default','key') }
+        @{ name = 'UsageType';     options = @('default') }
+        @{ name = 'AddressLine1';  options = @('default') }
+        @{ name = 'AddressLine2';  options = @('default') }
+        @{ name = 'City';          options = @('default') }
+        @{ name = 'State';         options = @('default') }
+        @{ name = 'PostalCode';    options = @('default') }
+        @{ name = 'Country';       options = @('default') }
+        @{ name = 'Primary';       options = @('default') }
+        @{ name = 'Public';        options = @('default') }
+    )
+    WorkerCompensation = @(
+        @{ name = 'WorkerID';    options = @('default','key') }
+        @{ name = 'PlanType';    options = @('default') }
+        @{ name = 'PlanId';      options = @('default') }
+        @{ name = 'Amount';      options = @('default') }
+        @{ name = 'Currency';    options = @('default') }
+        @{ name = 'Frequency';   options = @('default') }
+    )
+    WorkerRole = @(
+        @{ name = 'WorkerID';      options = @('default','key') }
+        @{ name = 'Role';          options = @('default') }
+        @{ name = 'Organization';  options = @('default') }
     )
 }
 
@@ -800,6 +854,123 @@ function Idm-WorkersPhoneRead {
     Log verbose "Done"
 }
 
+function Idm-WorkersAddressRead {
+    param (
+        [switch] $GetMeta,
+        [string] $SystemParams,
+        [string] $FunctionParams
+    )
+    $Class = "WorkerAddress"
+    Log verbose "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
+
+    if ($GetMeta) {
+        Get-ClassMetaData -SystemParams $SystemParams -Class $Class
+    }
+    else {
+        Check-WorkdayConnection -SystemParams $SystemParams
+
+        $function_params = ConvertFrom-Json2 $FunctionParams
+
+        $properties = $function_params.properties
+        if ($properties.length -eq 0) {
+            $properties = ($Global:Properties.$Class | Where-Object { $_.options.Contains('default') }).name
+        }
+
+        $key = ($Global:Properties.$Class | Where-Object { $_.options.Contains('key') }).name
+        $properties = @($key) + @($properties | Where-Object { $_ -ne $key })
+
+        try {
+            foreach($item in $Global:WorkersAddress) {
+                [PSCustomObject]$item
+            }
+        }
+        catch {
+            Log error "Failed: $_"
+            Write-Error $_
+        }
+    }
+
+    Log verbose "Done"
+}
+
+function Idm-WorkersCompensationRead {
+    param (
+        [switch] $GetMeta,
+        [string] $SystemParams,
+        [string] $FunctionParams
+    )
+    $Class = "WorkerCompensation"
+    Log verbose "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
+
+    if ($GetMeta) {
+        Get-ClassMetaData -SystemParams $SystemParams -Class $Class
+    }
+    else {
+        Check-WorkdayConnection -SystemParams $SystemParams
+
+        $function_params = ConvertFrom-Json2 $FunctionParams
+
+        $properties = $function_params.properties
+        if ($properties.length -eq 0) {
+            $properties = ($Global:Properties.$Class | Where-Object { $_.options.Contains('default') }).name
+        }
+
+        $key = ($Global:Properties.$Class | Where-Object { $_.options.Contains('key') }).name
+        $properties = @($key) + @($properties | Where-Object { $_ -ne $key })
+
+        try {
+            foreach($item in $Global:WorkersCompensation) {
+                [PSCustomObject]$item
+            }
+        }
+        catch {
+            Log error "Failed: $_"
+            Write-Error $_
+        }
+    }
+
+    Log verbose "Done"
+}
+
+function Idm-WorkersRoleRead {
+    param (
+        [switch] $GetMeta,
+        [string] $SystemParams,
+        [string] $FunctionParams
+    )
+    $Class = "WorkerRole"
+    Log verbose "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
+
+    if ($GetMeta) {
+        Get-ClassMetaData -SystemParams $SystemParams -Class $Class
+    }
+    else {
+        Check-WorkdayConnection -SystemParams $SystemParams
+
+        $function_params = ConvertFrom-Json2 $FunctionParams
+
+        $properties = $function_params.properties
+        if ($properties.length -eq 0) {
+            $properties = ($Global:Properties.$Class | Where-Object { $_.options.Contains('default') }).name
+        }
+
+        $key = ($Global:Properties.$Class | Where-Object { $_.options.Contains('key') }).name
+        $properties = @($key) + @($properties | Where-Object { $_ -ne $key })
+
+        try {
+            foreach($item in $Global:WorkersRole) {
+                [PSCustomObject]$item
+            }
+        }
+        catch {
+            Log error "Failed: $_"
+            Write-Error $_
+        }
+    }
+
+    Log verbose "Done"
+}
+
 function Invoke-WorkdayRequest {
     param (
         [hashtable] $SystemParams,
@@ -923,39 +1094,67 @@ function ConvertFrom-WorkdayWorkerXml {
     
         Begin {
             $WorkerObjectTemplate = [pscustomobject][ordered]@{
-                WorkerWid             = $null
-                Active                = $null
-                WorkerDescriptor      = $null
-                PreferredName         = $null
-                FirstName             = $null
-                LastName              = $null
-                WorkerType            = $null
-                WorkerId              = $null
-                UserId                = $null
-                NationalId            = $null
-                OtherId               = $null
-                Phone                 = $null
-                Email                 = $null
-                BusinessTitle         = $null
-                JobProfileName        = $null
-                Location              = $null
-                WorkSpace             = $null
-                WorkerTypeReference   = $null
-                Manager_WorkerID      = $null
-                Manager_WorkerType      = $null
-                Company               = $null
-                BusinessUnit          = $null
-                Supervisory           = $null
-                CostCenter          = $null
-                HireDate  = $null
-                timeType = $null
-                Department = $null
-				Terminated= $null
-				Termination_Date = $null
-				Active_Status_Date = $null
-				Retired = $null
-                PositionJobFamily = $null
-
+                WorkerWid                      = $null
+                Active                         = $null
+                WorkerDescriptor               = $null
+                PreferredName                  = $null
+                Salutation                     = $null
+                FirstName                      = $null
+                MiddleName                     = $null
+                LastName                       = $null
+                Legal_FirstName                = $null
+                Legal_MiddleName               = $null
+                Legal_LastName                 = $null
+                Date_Of_Birth                  = $null
+                Gender                         = $null
+                Marital_Status                 = $null
+                Country_of_Birth               = $null
+                City_of_Birth                  = $null
+                WorkerType                     = $null
+                WorkerId                       = $null
+                UserId                         = $null
+                NationalId                     = $null
+                OtherId                        = $null
+                Phone                          = $null
+                Email                          = $null
+                Address                        = $null
+                HireDate                       = $null
+                End_Employment_Date            = $null
+                Terminated                     = $null
+                Termination_Date               = $null
+                Active_Status_Date             = $null
+                Retired                        = $null
+                On_Leave                       = $null
+                Leave_Type                     = $null
+                BusinessTitle                  = $null
+                Position_ID                    = $null
+                Position_Title                 = $null
+                JobProfileName                 = $null
+                PositionJobFamily              = $null
+                Location                       = $null
+                WorkSpace                      = $null
+                WorkerTypeReference            = $null
+                timeType                       = $null
+                Scheduled_Weekly_Hours         = $null
+                Default_Weekly_Hours           = $null
+                FTE_Percent                    = $null
+                Pay_Rate_Type                  = $null
+                Job_Exempt                     = $null
+                Manager_WorkerID               = $null
+                Manager_WorkerType             = $null
+                Company                        = $null
+                BusinessUnit                   = $null
+                Supervisory                    = $null
+                CostCenter                     = $null
+                Department                     = $null
+                Compensation_Grade             = $null
+                Compensation_Package           = $null
+                Compensation_Effective_Date    = $null
+                Primary_Compensation_Amount    = $null
+                Primary_Compensation_Currency  = $null
+                Primary_Compensation_Frequency = $null
+                Compensation                   = $null
+                Role                           = $null
             }
             $WorkerObjectTemplate.PsObject.TypeNames.Insert(0, "Workday.Worker")
         }
@@ -979,7 +1178,26 @@ function ConvertFrom-WorkdayWorkerXml {
                     $o.NationalId = @(Get-WorkdayWorkerNationalId -WorkerXml $x.OuterXml)
                     $o.OtherId    = @(Get-WorkdayWorkerOtherId -WorkerXml $x.OuterXml)
                     $o.UserId     = $x.Worker_Data.User_ID
-                    
+
+                    # Additional preferred name fields
+                    $o.Salutation       = $x.SelectSingleNode('./wd:Worker_Data/wd:Personal_Data/wd:Name_Data/wd:Preferred_Name_Data/wd:Name_Detail_Data/wd:Salutation_Reference/wd:ID[@wd:type="Salutation_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                    $o.MiddleName       = $x.Worker_Data.Personal_Data.Name_Data.Preferred_Name_Data.Name_Detail_Data.Middle_Name
+
+                    # Legal name
+                    $o.Legal_FirstName  = $x.Worker_Data.Personal_Data.Name_Data.Legal_Name_Data.Name_Detail_Data.First_Name
+                    $o.Legal_MiddleName = $x.Worker_Data.Personal_Data.Name_Data.Legal_Name_Data.Name_Detail_Data.Middle_Name
+                    $o.Legal_LastName   = $x.Worker_Data.Personal_Data.Name_Data.Legal_Name_Data.Name_Detail_Data.Last_Name
+
+                    # Biographical data
+                    $o.Date_Of_Birth    = $x.Worker_Data.Personal_Data.Biographical_Data.Date_Of_Birth
+                    $o.Gender           = $x.SelectSingleNode('./wd:Worker_Data/wd:Personal_Data/wd:Biographical_Data/wd:Gender_Reference/wd:ID[@wd:type="Gender_Code"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                    $o.Marital_Status   = $x.SelectSingleNode('./wd:Worker_Data/wd:Personal_Data/wd:Biographical_Data/wd:Marital_Status_Reference/wd:ID[@wd:type="Marital_Status_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                    $o.Country_of_Birth = $x.SelectSingleNode('./wd:Worker_Data/wd:Personal_Data/wd:Biographical_Data/wd:Country_of_Birth_Reference/wd:ID[@wd:type="ISO_3166-1_Alpha-3_Code"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                    $o.City_of_Birth    = $x.Worker_Data.Personal_Data.Biographical_Data.City_of_Birth
+
+                    # Address
+                    $o.Address = @(Get-WorkdayWorkerAddress -WorkerXml $x.OuterXml)
+
                     # The methods SelectNodes and SelectSingleNode have access to the entire XML document and require anchoring with "./" to work as expected.
                     $workerEmploymentData = $x.SelectSingleNode('./wd:Worker_Data/wd:Employment_Data', $Global:NM)
                     $workerOrganizationData = $x.SelectSingleNode('./wd:Worker_Data/wd:Organization_Data',$Global:NM);
@@ -988,8 +1206,11 @@ function ConvertFrom-WorkdayWorkerXml {
 						$o.Terminated = $workerEmploymentData.Worker_Status_Data.Terminated
 						$o.Termination_Date = $workerEmploymentData.Worker_Status_Data.Termination_Date
 						$o.Active_Status_Date = $workerEmploymentData.Worker_Status_Data.Active_Status_Date
-						$o.Retired = $workerEmploymentData.Worker_Status_Data.Retired
-                        $o.PositionJobFamily =  try { ($workerEmploymentData.Worker_Job_Data.Position_Data.Job_Profile_Summary_Data.Job_Family_Reference.ID | ? { $_.type -eq 'Job_Family_ID' }).'#text'} catch{}
+						$o.Retired             = $workerEmploymentData.Worker_Status_Data.Retired
+                        $o.End_Employment_Date = $workerEmploymentData.Worker_Status_Data.End_Employment_Date
+                        $o.On_Leave            = $workerEmploymentData.Worker_Status_Data.Leave_Status_Data.On_Leave -eq '1'
+                        $o.Leave_Type          = $workerEmploymentData.SelectSingleNode('./wd:Worker_Status_Data/wd:Leave_Status_Data/wd:Leave_Type_Reference/wd:ID[@wd:type="Leave_Type_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                        $o.PositionJobFamily   = try { ($workerEmploymentData.Worker_Job_Data.Position_Data.Job_Profile_Summary_Data.Job_Family_Reference.ID | Where-Object { $_.type -eq 'Job_Family_ID' }).'#text'} catch{}
                     }
                     
                     $workerJobData = $x.SelectSingleNode('./wd:Worker_Data/wd:Employment_Data/wd:Worker_Job_Data', $Global:NM)
@@ -1012,9 +1233,47 @@ function ConvertFrom-WorkdayWorkerXml {
                         $o.CostCenter = $workerJobData.SelectNodes('./wd:Position_Organizations_Data/wd:Position_Organization_Data/wd:Organization_Data[wd:Organization_Type_Reference/wd:ID[@wd:type="Organization_Type_ID" and . = "Cost_Center"]]', $Global:NM) | Select-Object -ExpandProperty Organization_Name -First 1 -ErrorAction SilentlyContinue
                         $o.BusinessUnit = $workerJobData.SelectNodes('./wd:Position_Organizations_Data/wd:Position_Organization_Data/wd:Organization_Data[wd:Organization_Type_Reference/wd:ID[@wd:type="Organization_Type_ID" and . = "BUSINESS_UNIT"]]', $Global:NM) | Select-Object -ExpandProperty Organization_Name -First 1 -ErrorAction SilentlyContinue
                         $o.Supervisory = $workerJobData.SelectNodes('./wd:Position_Organizations_Data/wd:Position_Organization_Data/wd:Organization_Data[wd:Organization_Type_Reference/wd:ID[@wd:type="Organization_Type_ID" and . = "SUPERVISORY"]]', $Global:NM) | Select-Object -ExpandProperty Organization_Name -First 1 -ErrorAction SilentlyContinue
-                        $o.timeType = $workerJobData.Position_Data.Position_Time_Type_Reference.ID[1].'#text'
+                        $o.timeType               = $workerJobData.Position_Data.Position_Time_Type_Reference.ID[1].'#text'
+                        $o.Position_ID            = $workerJobData.Position_Data.Position_ID
+                        $o.Position_Title         = $workerJobData.Position_Data.Position_Title
+                        $o.Scheduled_Weekly_Hours = $workerJobData.Position_Data.Scheduled_Weekly_Hours
+                        $o.Default_Weekly_Hours   = $workerJobData.Position_Data.Default_Weekly_Hours
+                        $o.FTE_Percent            = $workerJobData.Position_Data.FTE_Percent
+                        $o.Pay_Rate_Type          = $workerJobData.SelectSingleNode('./wd:Position_Data/wd:Pay_Rate_Type_Reference/wd:ID[@wd:type="Pay_Rate_Type_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                        $o.Job_Exempt             = $workerJobData.Position_Data.Job_Exempt -eq '1'
                     }
 
+                    # Compensation
+                    $workerCompensationData = $x.SelectSingleNode('./wd:Worker_Data/wd:Compensation_Data/wd:Worker_Compensation_Data', $Global:NM)
+                    if ($null -ne $workerCompensationData) {
+                        $o.Compensation_Grade            = $workerCompensationData.SelectSingleNode('./wd:Compensation_Grade_Reference/wd:ID[@wd:type="Compensation_Grade_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                        $o.Compensation_Package          = $workerCompensationData.SelectSingleNode('./wd:Compensation_Package_Reference/wd:ID[@wd:type="Compensation_Package_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                        $o.Compensation_Effective_Date   = $workerCompensationData.Effective_Date
+                        $primaryPlan = $workerCompensationData.SelectSingleNode('./wd:Compensation_Plan_Data/wd:Compensation_Plan_Sub_Data[1]', $Global:NM)
+                        if ($null -ne $primaryPlan) {
+                            $o.Primary_Compensation_Amount    = $primaryPlan.Amount
+                            $o.Primary_Compensation_Currency  = $primaryPlan.SelectSingleNode('./wd:Currency_Reference/wd:ID[@wd:type="Currency_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                            $o.Primary_Compensation_Frequency = $primaryPlan.SelectSingleNode('./wd:Frequency_Reference/wd:ID[@wd:type="Frequency_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                        }
+                        $o.Compensation = @($workerCompensationData.SelectNodes('./wd:Compensation_Plan_Data/wd:Compensation_Plan_Sub_Data', $Global:NM) | ForEach-Object {
+                            $planTypeId = $_.Compensation_Plan_Reference.ID | Where-Object { $_.type -ne 'WID' } | Select-Object -First 1
+                            [pscustomobject]@{
+                                PlanType  = $planTypeId.type
+                                PlanId    = $planTypeId.'#text'
+                                Amount    = $_.Amount
+                                Currency  = $_.SelectSingleNode('./wd:Currency_Reference/wd:ID[@wd:type="Currency_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                                Frequency = $_.SelectSingleNode('./wd:Frequency_Reference/wd:ID[@wd:type="Frequency_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                            }
+                        })
+                    }
+
+                    # Roles
+                    $o.Role = @($x.SelectNodes('./wd:Worker_Data/wd:Roles_Data/wd:Worker_Role_Assignment_Data/wd:Role_Assignment_Data', $Global:NM) | ForEach-Object {
+                        [pscustomobject]@{
+                            Role         = $_.SelectSingleNode('./wd:Role_Reference/wd:ID[@wd:type="Organization_Role_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                            Organization = $_.SelectSingleNode('./wd:Organization_Reference/wd:ID[@wd:type="Organization_Reference_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                        }
+                    })
 
                     #Split Tables
                         #Email
@@ -1067,6 +1326,46 @@ function ConvertFrom-WorkdayWorkerXml {
                             })
                         }
 
+                        #Address
+                        foreach($item in $o.Address)
+                        {
+                            [void]$Global:WorkersAddress.Add(@{
+                                WorkerID     = $o.WorkerID
+                                UsageType    = $item.UsageType
+                                AddressLine1 = $item.AddressLine1
+                                AddressLine2 = $item.AddressLine2
+                                City         = $item.City
+                                State        = $item.State
+                                PostalCode   = $item.PostalCode
+                                Country      = $item.Country
+                                Primary      = $item.Primary
+                                Public       = $item.Public
+                            })
+                        }
+
+                        #Compensation
+                        foreach($item in $o.Compensation)
+                        {
+                            [void]$Global:WorkersCompensation.Add(@{
+                                WorkerID  = $o.WorkerID
+                                PlanType  = $item.PlanType
+                                PlanId    = $item.PlanId
+                                Amount    = $item.Amount
+                                Currency  = $item.Currency
+                                Frequency = $item.Frequency
+                            })
+                        }
+
+                        #Role
+                        foreach($item in $o.Role)
+                        {
+                            [void]$Global:WorkersRole.Add(@{
+                                WorkerID     = $o.WorkerID
+                                Role         = $item.Role
+                                Organization = $item.Organization
+                            })
+                        }
+
                     Write-Output $o
                 }
             }
@@ -1115,6 +1414,45 @@ function Get-WorkdayWorkerDocument {
             $o.SaveAs($filePath)
         }
 
+        Write-Output $o
+    }
+}
+
+function Get-WorkdayWorkerAddress {
+    [OutputType([PSCustomObject])]
+    param (
+        [xml]$WorkerXml
+    )
+
+    if ($WorkerXml -eq $null) {
+        Log verbose 'Unable to get Address information, Worker not found.'
+        return
+    }
+
+    $addressTemplate = [pscustomobject][ordered]@{
+        UsageType    = $null
+        AddressLine1 = $null
+        AddressLine2 = $null
+        City         = $null
+        State        = $null
+        PostalCode   = $null
+        Country      = $null
+        Primary      = $null
+        Public       = $null
+    }
+
+    $WorkerXml.GetElementsByTagName('wd:Address_Data') | ForEach-Object {
+        $o = $addressTemplate.PsObject.Copy()
+        $o.UsageType    = $_.SelectSingleNode('wd:Usage_Data/wd:Type_Data/wd:Type_Reference/wd:ID[@wd:type="Communication_Usage_Type_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+        $lines          = $_.SelectNodes('wd:Address_Line_Data', $Global:NM) | Select-Object -ExpandProperty InnerText
+        $o.AddressLine1 = $lines | Select-Object -First 1
+        $o.AddressLine2 = $lines | Select-Object -Skip 1 -First 1
+        $o.City         = $_.Municipality
+        $o.State        = $_.SelectSingleNode('wd:Country_Region_Reference/wd:ID[@wd:type="Country_Region_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+        $o.PostalCode   = $_.Postal_Code
+        $o.Country      = $_.SelectSingleNode('wd:Country_Reference/wd:ID[@wd:type="ISO_3166-1_Alpha-2_Code"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+        $o.Primary      = [System.Xml.XmlConvert]::ToBoolean( $_.Usage_Data.Type_Data.Primary )
+        $o.Public       = [System.Xml.XmlConvert]::ToBoolean( $_.Usage_Data.Public )
         Write-Output $o
     }
 }
