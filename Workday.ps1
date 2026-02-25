@@ -224,6 +224,7 @@ $Properties = @{
 		@{ name = 'Termination_Date`';                             options = @('default') }
 		@{ name = 'Active_Status_Date';                             options = @('default') }
 		@{ name = 'Rehired';                             options = @('default') }
+        @{ name = 'PositionJobFamily';                   options = @('default') }
     )
     WorkerEmail = @(
         @{ name = 'WorkerID';                              options = @('default','key')                      }
@@ -334,7 +335,7 @@ function Idm-WorkersRead {
 
                         foreach($item in ($response | ConvertFrom-WorkdayWorkerXml) ) {
                             [void]$Global:Workers.Add($item)
-                        }                     
+                        }
                     }   
 
                     $Global:WorkersCacheTime = Get-Date
@@ -953,6 +954,8 @@ function ConvertFrom-WorkdayWorkerXml {
 				Termination_Date = $null
 				Active_Status_Date = $null
 				Retired = $null
+                PositionJobFamily = $null
+
             }
             $WorkerObjectTemplate.PsObject.TypeNames.Insert(0, "Workday.Worker")
         }
@@ -986,6 +989,7 @@ function ConvertFrom-WorkdayWorkerXml {
 						$o.Termination_Date = $workerEmploymentData.Worker_Status_Data.Termination_Date
 						$o.Active_Status_Date = $workerEmploymentData.Worker_Status_Data.Active_Status_Date
 						$o.Retired = $workerEmploymentData.Worker_Status_Data.Retired
+                        $o.PositionJobFamily =  try { ($workerEmploymentData.Worker_Job_Data.Position_Data.Job_Profile_Summary_Data.Job_Family_Reference.ID | ? { $_.type -eq 'Job_Family_ID' }).'#text'} catch{}
                     }
                     
                     $workerJobData = $x.SelectSingleNode('./wd:Worker_Data/wd:Employment_Data/wd:Worker_Job_Data', $Global:NM)
