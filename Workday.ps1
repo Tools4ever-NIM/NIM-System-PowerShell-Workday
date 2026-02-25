@@ -21,6 +21,7 @@ $Global:WorkersPhone = [System.Collections.ArrayList]@()
 $Global:WorkersAddress = [System.Collections.ArrayList]@()
 $Global:WorkersCompensation = [System.Collections.ArrayList]@()
 $Global:WorkersRole = [System.Collections.ArrayList]@()
+$Global:WorkersManagementChain = [System.Collections.ArrayList]@()
 
 #
 # System functions
@@ -174,6 +175,8 @@ function Idm-SystemInfo {
                                             <bsvc:Include_Compensation>true</bsvc:Include_Compensation>
                                             <bsvc:Include_Organizations>true</bsvc:Include_Organizations>
                                             <bsvc:Include_Roles>true</bsvc:Include_Roles>
+                                            <bsvc:Include_Management_Chain_Data>true</bsvc:Include_Management_Chain_Data>
+                                            <bsvc:Include_User_Account>true</bsvc:Include_User_Account>
                                             <bsvc:Include_Worker_Documents>true</bsvc:Include_Worker_Documents>
                                         </bsvc:Response_Group>
                                     </bsvc:Get_Workers_Request>' -f 1, 1
@@ -254,6 +257,32 @@ $Properties = @{
         @{ name = 'Primary_Compensation_Amount';              options = @('default') }
         @{ name = 'Primary_Compensation_Currency';            options = @('default') }
         @{ name = 'Primary_Compensation_Frequency';           options = @('default') }
+        @{ name = 'Universal_ID';                             options = @('default') }
+        @{ name = 'Name_Suffix';                              options = @('default') }
+        @{ name = 'Secondary_Last_Name';                      options = @('default') }
+        @{ name = 'Tobacco_Use';                              options = @('default') }
+        @{ name = 'Hispanic_or_Latino';                       options = @('default') }
+        @{ name = 'Ethnicity';                                options = @('default') }
+        @{ name = 'Military_Status';                          options = @('default') }
+        @{ name = 'Has_Disability';                           options = @('default') }
+        @{ name = 'Citizenship_Status';                       options = @('default') }
+        @{ name = 'Primary_Nationality';                      options = @('default') }
+        @{ name = 'Hire_Date';                                options = @('default') }
+        @{ name = 'Original_Hire_Date';                       options = @('default') }
+        @{ name = 'Continuous_Service_Date';                  options = @('default') }
+        @{ name = 'First_Day_of_Work';                        options = @('default') }
+        @{ name = 'Last_Day_of_Work';                         options = @('default') }
+        @{ name = 'Rehire';                                   options = @('default') }
+        @{ name = 'Benefits_Service_Date';                    options = @('default') }
+        @{ name = 'Seniority_Date';                           options = @('default') }
+        @{ name = 'Work_Shift';                               options = @('default') }
+        @{ name = 'Job_Classification';                       options = @('default') }
+        @{ name = 'Expected_Assignment_End_Date';             options = @('default') }
+        @{ name = 'Regular_Paid_Equivalent_Hours';            options = @('default') }
+        @{ name = 'Working_Time_Value';                       options = @('default') }
+        @{ name = 'Working_Time_Unit';                        options = @('default') }
+        @{ name = 'Account_Disabled';                         options = @('default') }
+        @{ name = 'Preferred_Language';                       options = @('default') }
     )
     WorkerEmail = @(
         @{ name = 'WorkerID';                              options = @('default','key')                      }
@@ -317,6 +346,13 @@ $Properties = @{
         @{ name = 'Role';          options = @('default') }
         @{ name = 'Organization';  options = @('default') }
     )
+    WorkerManagementChain = @(
+        @{ name = 'WorkerID';          options = @('default','key') }
+        @{ name = 'Level';             options = @('default') }
+        @{ name = 'Manager_WorkerID';  options = @('default') }
+        @{ name = 'Manager_WorkerType'; options = @('default') }
+        @{ name = 'Manager_Descriptor'; options = @('default') }
+    )
 }
 
 
@@ -376,6 +412,8 @@ function Idm-WorkersRead {
                                             <bsvc:Include_Compensation>true</bsvc:Include_Compensation>
                                             <bsvc:Include_Organizations>true</bsvc:Include_Organizations>
                                             <bsvc:Include_Roles>true</bsvc:Include_Roles>
+                                            <bsvc:Include_Management_Chain_Data>true</bsvc:Include_Management_Chain_Data>
+                                            <bsvc:Include_User_Account>true</bsvc:Include_User_Account>
                                             <bsvc:Include_Worker_Documents>true</bsvc:Include_Worker_Documents>
                                         </bsvc:Response_Group>
                                     </bsvc:Get_Workers_Request>' -f $page, $system_params.pagesize, $system_params.as_of_effective_date, $exclude_inactive_workers
@@ -971,6 +1009,45 @@ function Idm-WorkersRoleRead {
     Log verbose "Done"
 }
 
+function Idm-WorkersManagementChainRead {
+    param (
+        [switch] $GetMeta,
+        [string] $SystemParams,
+        [string] $FunctionParams
+    )
+    $Class = "WorkerManagementChain"
+    Log verbose "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
+
+    if ($GetMeta) {
+        Get-ClassMetaData -SystemParams $SystemParams -Class $Class
+    }
+    else {
+        Check-WorkdayConnection -SystemParams $SystemParams
+
+        $function_params = ConvertFrom-Json2 $FunctionParams
+
+        $properties = $function_params.properties
+        if ($properties.length -eq 0) {
+            $properties = ($Global:Properties.$Class | Where-Object { $_.options.Contains('default') }).name
+        }
+
+        $key = ($Global:Properties.$Class | Where-Object { $_.options.Contains('key') }).name
+        $properties = @($key) + @($properties | Where-Object { $_ -ne $key })
+
+        try {
+            foreach($item in $Global:WorkersManagementChain) {
+                [PSCustomObject]$item
+            }
+        }
+        catch {
+            Log error "Failed: $_"
+            Write-Error $_
+        }
+    }
+
+    Log verbose "Done"
+}
+
 function Invoke-WorkdayRequest {
     param (
         [hashtable] $SystemParams,
@@ -1155,6 +1232,33 @@ function ConvertFrom-WorkdayWorkerXml {
                 Primary_Compensation_Frequency = $null
                 Compensation                   = $null
                 Role                           = $null
+                Management_Chain               = $null
+                Universal_ID                   = $null
+                Name_Suffix                    = $null
+                Secondary_Last_Name            = $null
+                Tobacco_Use                    = $null
+                Hispanic_or_Latino             = $null
+                Ethnicity                      = $null
+                Military_Status                = $null
+                Has_Disability                 = $null
+                Citizenship_Status             = $null
+                Primary_Nationality            = $null
+                Hire_Date                      = $null
+                Original_Hire_Date             = $null
+                Continuous_Service_Date        = $null
+                First_Day_of_Work              = $null
+                Last_Day_of_Work               = $null
+                Rehire                         = $null
+                Benefits_Service_Date          = $null
+                Seniority_Date                 = $null
+                Work_Shift                     = $null
+                Job_Classification             = $null
+                Expected_Assignment_End_Date   = $null
+                Regular_Paid_Equivalent_Hours  = $null
+                Working_Time_Value             = $null
+                Working_Time_Unit              = $null
+                Account_Disabled               = $null
+                Preferred_Language             = $null
             }
             $WorkerObjectTemplate.PsObject.TypeNames.Insert(0, "Workday.Worker")
         }
@@ -1168,6 +1272,7 @@ function ConvertFrom-WorkdayWorkerXml {
     
                     $o.WorkerWid        = $x.Worker_Reference.ID | Where-Object {$_.type -eq 'WID'} | Select-Object -ExpandProperty '#text'
                     $o.WorkerDescriptor = $x.Worker_Descriptor
+                    $o.Universal_ID     = $x.Worker_Data.Universal_ID
                     $o.PreferredName    = $x.Worker_Data.Personal_Data.Name_Data.Preferred_Name_Data.Name_Detail_Data.Formatted_Name
                     $o.FirstName        = $x.Worker_Data.Personal_Data.Name_Data.Preferred_Name_Data.Name_Detail_Data.First_Name
                     $o.LastName         = $x.Worker_Data.Personal_Data.Name_Data.Preferred_Name_Data.Name_Detail_Data.Last_Name
@@ -1181,7 +1286,9 @@ function ConvertFrom-WorkdayWorkerXml {
 
                     # Additional preferred name fields
                     $o.Salutation       = $x.SelectSingleNode('./wd:Worker_Data/wd:Personal_Data/wd:Name_Data/wd:Preferred_Name_Data/wd:Name_Detail_Data/wd:Salutation_Reference/wd:ID[@wd:type="Salutation_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
-                    $o.MiddleName       = $x.Worker_Data.Personal_Data.Name_Data.Preferred_Name_Data.Name_Detail_Data.Middle_Name
+                    $o.MiddleName           = $x.Worker_Data.Personal_Data.Name_Data.Preferred_Name_Data.Name_Detail_Data.Middle_Name
+                    $o.Name_Suffix          = $x.SelectSingleNode('./wd:Worker_Data/wd:Personal_Data/wd:Name_Data/wd:Preferred_Name_Data/wd:Name_Detail_Data/wd:Suffix_Data/wd:Social_Suffix_Reference/wd:ID[@wd:type="Name_Suffix_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                    $o.Secondary_Last_Name  = $x.Worker_Data.Personal_Data.Name_Data.Preferred_Name_Data.Name_Detail_Data.Secondary_Last_Name
 
                     # Legal name
                     $o.Legal_FirstName  = $x.Worker_Data.Personal_Data.Name_Data.Legal_Name_Data.Name_Detail_Data.First_Name
@@ -1193,7 +1300,14 @@ function ConvertFrom-WorkdayWorkerXml {
                     $o.Gender           = $x.SelectSingleNode('./wd:Worker_Data/wd:Personal_Data/wd:Biographical_Data/wd:Gender_Reference/wd:ID[@wd:type="Gender_Code"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
                     $o.Marital_Status   = $x.SelectSingleNode('./wd:Worker_Data/wd:Personal_Data/wd:Biographical_Data/wd:Marital_Status_Reference/wd:ID[@wd:type="Marital_Status_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
                     $o.Country_of_Birth = $x.SelectSingleNode('./wd:Worker_Data/wd:Personal_Data/wd:Biographical_Data/wd:Country_of_Birth_Reference/wd:ID[@wd:type="ISO_3166-1_Alpha-3_Code"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
-                    $o.City_of_Birth    = $x.Worker_Data.Personal_Data.Biographical_Data.City_of_Birth
+                    $o.City_of_Birth       = $x.Worker_Data.Personal_Data.Biographical_Data.City_of_Birth
+                    $o.Tobacco_Use         = try { [System.Xml.XmlConvert]::ToBoolean($x.Worker_Data.Personal_Data.Biographical_Data.Tobacco_Use) } catch { $false }
+                    $o.Hispanic_or_Latino  = try { [System.Xml.XmlConvert]::ToBoolean($x.Worker_Data.Personal_Data.Biographical_Data.Hispanic_or_Latino) } catch { $false }
+                    $o.Ethnicity           = ($x.SelectNodes('./wd:Worker_Data/wd:Personal_Data/wd:Biographical_Data/wd:Ethnicity_Reference/wd:ID[@wd:type="Ethnicity_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText) -join '; '
+                    $o.Military_Status     = $x.SelectSingleNode('./wd:Worker_Data/wd:Personal_Data/wd:Biographical_Data/wd:Military_Status_Reference/wd:ID[@wd:type="Military_Status_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                    $o.Has_Disability      = try { [System.Xml.XmlConvert]::ToBoolean($x.Worker_Data.Personal_Data.Biographical_Data.Disability_Status_Data.Has_Disability) } catch { $false }
+                    $o.Citizenship_Status  = $x.SelectSingleNode('./wd:Worker_Data/wd:Personal_Data/wd:Biographical_Data/wd:Citizenship_Status_Reference/wd:ID[@wd:type="Citizenship_Status_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                    $o.Primary_Nationality = $x.SelectSingleNode('./wd:Worker_Data/wd:Personal_Data/wd:Biographical_Data/wd:Primary_Nationality_Reference/wd:ID[@wd:type="Country_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
 
                     # Address
                     $o.Address = @(Get-WorkdayWorkerAddress -WorkerXml $x.OuterXml)
@@ -1209,8 +1323,16 @@ function ConvertFrom-WorkdayWorkerXml {
 						$o.Retired             = $workerEmploymentData.Worker_Status_Data.Retired
                         $o.End_Employment_Date = $workerEmploymentData.Worker_Status_Data.End_Employment_Date
                         $o.On_Leave            = $workerEmploymentData.Worker_Status_Data.Leave_Status_Data.On_Leave -eq '1'
-                        $o.Leave_Type          = $workerEmploymentData.SelectSingleNode('./wd:Worker_Status_Data/wd:Leave_Status_Data/wd:Leave_Type_Reference/wd:ID[@wd:type="Leave_Type_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
-                        $o.PositionJobFamily   = try { ($workerEmploymentData.Worker_Job_Data.Position_Data.Job_Profile_Summary_Data.Job_Family_Reference.ID | Where-Object { $_.type -eq 'Job_Family_ID' }).'#text'} catch{}
+                        $o.Leave_Type              = $workerEmploymentData.SelectSingleNode('./wd:Worker_Status_Data/wd:Leave_Status_Data/wd:Leave_Type_Reference/wd:ID[@wd:type="Leave_Type_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                        $o.Hire_Date               = $workerEmploymentData.Worker_Status_Data.Hire_Date
+                        $o.Original_Hire_Date      = $workerEmploymentData.Worker_Status_Data.Original_Hire_Date
+                        $o.Continuous_Service_Date = $workerEmploymentData.Worker_Status_Data.Continuous_Service_Date
+                        $o.First_Day_of_Work       = $workerEmploymentData.Worker_Status_Data.First_Day_of_Work
+                        $o.Last_Day_of_Work        = $workerEmploymentData.Worker_Status_Data.Last_Day_of_Work
+                        $o.Rehire                  = try { [System.Xml.XmlConvert]::ToBoolean($workerEmploymentData.Worker_Status_Data.Rehire) } catch { $false }
+                        $o.Benefits_Service_Date   = $workerEmploymentData.Worker_Status_Data.Benefits_Service_Date
+                        $o.Seniority_Date          = $workerEmploymentData.Worker_Status_Data.Seniority_Date
+                        $o.PositionJobFamily       = try { ($workerEmploymentData.Worker_Job_Data.Position_Data.Job_Profile_Summary_Data.Job_Family_Reference.ID | Where-Object { $_.type -eq 'Job_Family_ID' }).'#text'} catch{}
                     }
                     
                     $workerJobData = $x.SelectSingleNode('./wd:Worker_Data/wd:Employment_Data/wd:Worker_Job_Data', $Global:NM)
@@ -1240,7 +1362,13 @@ function ConvertFrom-WorkdayWorkerXml {
                         $o.Default_Weekly_Hours   = $workerJobData.Position_Data.Default_Weekly_Hours
                         $o.FTE_Percent            = $workerJobData.Position_Data.FTE_Percent
                         $o.Pay_Rate_Type          = $workerJobData.SelectSingleNode('./wd:Position_Data/wd:Pay_Rate_Type_Reference/wd:ID[@wd:type="Pay_Rate_Type_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
-                        $o.Job_Exempt             = $workerJobData.Position_Data.Job_Exempt -eq '1'
+                        $o.Job_Exempt                    = $workerJobData.Position_Data.Job_Exempt -eq '1'
+                        $o.Work_Shift                    = $workerJobData.SelectSingleNode('./wd:Position_Data/wd:Work_Shift_Reference/wd:ID[@wd:type="Work_Shift_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                        $o.Job_Classification            = $workerJobData.SelectSingleNode('./wd:Position_Data/wd:Job_Profile_Summary_Data/wd:Job_Classification_Summary_Data/wd:Job_Classification_Reference/wd:ID[@wd:type="Job_Classification_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                        $o.Expected_Assignment_End_Date  = $workerJobData.Position_Data.Expected_Assignment_End_Date
+                        $o.Regular_Paid_Equivalent_Hours = $workerJobData.Position_Data.Regular_Paid_Equivalent_Hours
+                        $o.Working_Time_Value            = $workerJobData.Position_Data.Working_Time_Value
+                        $o.Working_Time_Unit             = $workerJobData.SelectSingleNode('./wd:Position_Data/wd:Working_Time_Unit_Reference/wd:ID[@wd:type="Working_Time_Unit_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
                     }
 
                     # Compensation
@@ -1274,6 +1402,26 @@ function ConvertFrom-WorkdayWorkerXml {
                             Organization = $_.SelectSingleNode('./wd:Organization_Reference/wd:ID[@wd:type="Organization_Reference_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
                         }
                     })
+
+                    # Management Chain
+                    $mgmtLevel = 0
+                    $o.Management_Chain = @($x.SelectNodes('./wd:Worker_Data/wd:Management_Chain_Data/wd:Worker_Supervisory_Management_Chain_Data/wd:Management_Chain_Data', $Global:NM) | ForEach-Object {
+                        $mgmtLevel++
+                        $mgrId = $_.Manager.Worker_Reference.ID | Where-Object { $_.type -ne 'WID' } | Select-Object -First 1
+                        [pscustomobject]@{
+                            Level             = $mgmtLevel
+                            Manager_WorkerID  = $mgrId.'#text'
+                            Manager_WorkerType = $mgrId.type
+                            Manager_Descriptor = $_.Manager.Worker_Descriptor
+                        }
+                    })
+
+                    # User Account
+                    $workerUserAccountData = $x.SelectSingleNode('./wd:Worker_Data/wd:User_Account_Data', $Global:NM)
+                    if ($null -ne $workerUserAccountData) {
+                        $o.Account_Disabled  = try { [System.Xml.XmlConvert]::ToBoolean($workerUserAccountData.Account_Disabled) } catch { $false }
+                        $o.Preferred_Language = $workerUserAccountData.SelectSingleNode('./wd:Preferred_Language_Reference/wd:ID[@wd:type="Language_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
+                    }
 
                     #Split Tables
                         #Email
@@ -1363,6 +1511,18 @@ function ConvertFrom-WorkdayWorkerXml {
                                 WorkerID     = $o.WorkerID
                                 Role         = $item.Role
                                 Organization = $item.Organization
+                            })
+                        }
+
+                        #ManagementChain
+                        foreach($item in $o.Management_Chain)
+                        {
+                            [void]$Global:WorkersManagementChain.Add(@{
+                                WorkerID           = $o.WorkerID
+                                Level              = $item.Level
+                                Manager_WorkerID   = $item.Manager_WorkerID
+                                Manager_WorkerType = $item.Manager_WorkerType
+                                Manager_Descriptor = $item.Manager_Descriptor
                             })
                         }
 
