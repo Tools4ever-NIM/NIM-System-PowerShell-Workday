@@ -22,6 +22,8 @@ $Global:WorkersAddress = [System.Collections.ArrayList]@()
 $Global:WorkersCompensation = [System.Collections.ArrayList]@()
 $Global:WorkersRole = [System.Collections.ArrayList]@()
 $Global:WorkersManagementChain = [System.Collections.ArrayList]@()
+$Global:WorkdayAccountsCacheTime = Get-Date
+$Global:WorkdayAccounts = [System.Collections.ArrayList]@()
 
 #
 # System functions
@@ -160,28 +162,29 @@ function Idm-SystemInfo {
     }
 
     if ($TestConnection) {
-			 $xmlRequest = '<bsvc:Get_Workers_Request bsvc:version="v30.0">
-                                        <bsvc:Response_Filter>
-                                            <bsvc:Page>{0}</bsvc:Page>
-                                            <bsvc:Count>{1}</bsvc:Count>
-                                        </bsvc:Response_Filter>
-                                        <bsvc:Request_Criteria>
-                                            <bsvc:Exclude_Inactive_Workers>false</bsvc:Exclude_Inactive_Workers>
-                                        </bsvc:Request_Criteria>
-                                        <bsvc:Response_Group>
-                                            <bsvc:Include_Reference>true</bsvc:Include_Reference>
-                                            <bsvc:Include_Personal_Information>true</bsvc:Include_Personal_Information>
-                                            <bsvc:Include_Employment_Information>true</bsvc:Include_Employment_Information>
-                                            <bsvc:Include_Compensation>true</bsvc:Include_Compensation>
-                                            <bsvc:Include_Organizations>true</bsvc:Include_Organizations>
-                                            <bsvc:Include_Roles>true</bsvc:Include_Roles>
-                                            <bsvc:Include_Management_Chain_Data>true</bsvc:Include_Management_Chain_Data>
-                                            <bsvc:Include_User_Account>true</bsvc:Include_User_Account>
-                                            <bsvc:Include_Worker_Documents>true</bsvc:Include_Worker_Documents>
-                                        </bsvc:Response_Group>
-                                    </bsvc:Get_Workers_Request>' -f 1, 1
+        $connectionParameters = (ConvertFrom-Json2 $ConnectionParams) 
+        $xmlRequest = '<bsvc:Get_Workers_Request bsvc:version="v{0}">
+                                    <bsvc:Response_Filter>
+                                        <bsvc:Page>{1}</bsvc:Page>
+                                        <bsvc:Count>{2}</bsvc:Count>
+                                    </bsvc:Response_Filter>
+                                    <bsvc:Request_Criteria>
+                                        <bsvc:Exclude_Inactive_Workers>false</bsvc:Exclude_Inactive_Workers>
+                                    </bsvc:Request_Criteria>
+                                    <bsvc:Response_Group>
+                                        <bsvc:Include_Reference>true</bsvc:Include_Reference>
+                                        <bsvc:Include_Personal_Information>true</bsvc:Include_Personal_Information>
+                                        <bsvc:Include_Employment_Information>true</bsvc:Include_Employment_Information>
+                                        <bsvc:Include_Compensation>true</bsvc:Include_Compensation>
+                                        <bsvc:Include_Organizations>true</bsvc:Include_Organizations>
+                                        <bsvc:Include_Roles>true</bsvc:Include_Roles>
+                                        <bsvc:Include_Management_Chain_Data>true</bsvc:Include_Management_Chain_Data>
+                                        <bsvc:Include_User_Account>true</bsvc:Include_User_Account>
+                                        <bsvc:Include_Worker_Documents>true</bsvc:Include_Worker_Documents>
+                                    </bsvc:Response_Group>
+                                </bsvc:Get_Workers_Request>' -f $connectionParameters.version, 1, 1
 
-                        $response = Invoke-WorkdayRequest -SystemParams (ConvertFrom-Json2 $ConnectionParams) -Body $xmlRequest -Namespace "Human_Resources"
+        $response = Invoke-WorkdayRequest -SystemParams $connectionParameters -Body $xmlRequest -Namespace "Human_Resources"
     }
 
     if ($Configuration) {
@@ -353,6 +356,27 @@ $Properties = @{
         @{ name = 'Manager_WorkerType'; options = @('default') }
         @{ name = 'Manager_Descriptor'; options = @('default') }
     )
+    WorkdayAccount = @(
+        @{ name = 'User_Name';                                    options = @('default','key') }
+        @{ name = 'Account_Disabled';                             options = @('default') }
+        @{ name = 'Account_Expiration_Date';                      options = @('default') }
+        @{ name = 'Session_Timeout_Minutes';                      options = @('default') }
+        @{ name = 'Require_New_Password_at_Next_Sign_In';         options = @('default') }
+        @{ name = 'Multi_Factor_Authentication_Exempt';           options = @('default') }
+        @{ name = 'Multi_Factor_Authentication_Grace_Period_Disabled'; options = @('default') }
+        @{ name = 'Grace_Period_Logins_Remaining';                options = @('default') }
+        @{ name = 'OpenID_Identifier';                            options = @('default') }
+        @{ name = 'OpenID_Internal_Identifier';                   options = @('default') }
+        @{ name = 'OpenID_Connect_Internal_Identifier';           options = @('default') }
+        @{ name = 'Exempt_from_Delegated_Authentication';         options = @('default') }
+        @{ name = 'Locale';                                       options = @('default') }
+        @{ name = 'User_Language';                                options = @('default') }
+        @{ name = 'Preferred_Communication_Language';             options = @('default') }
+        @{ name = 'Allow_Mixed_Language_Transactions';            options = @('default') }
+        @{ name = 'Show_User_Name_in_Browser_Window';             options = @('default') }
+        @{ name = 'Display_XML_Icon_on_Reports';                  options = @('default') }
+        @{ name = 'Enable_Workbox';                               options = @('default') }
+    )
 }
 
 
@@ -396,14 +420,14 @@ function Idm-WorkersRead {
                     while($page -lt $totalPages) {
 						$page++
 
-                        $xmlRequest = '<bsvc:Get_Workers_Request bsvc:version="v30.0">
+                        $xmlRequest = '<bsvc:Get_Workers_Request bsvc:version="v{0}">
                                         <bsvc:Response_Filter>
-                                            <bsvc:Page>{0}</bsvc:Page>
-                                            <bsvc:Count>{1}</bsvc:Count>
-											<bsvc:As_Of_Effective_Date>{2}</bsvc:As_Of_Effective_Date>
+                                            <bsvc:Page>{1}</bsvc:Page>
+                                            <bsvc:Count>{2}</bsvc:Count>
+											<bsvc:As_Of_Effective_Date>{3}</bsvc:As_Of_Effective_Date>
                                         </bsvc:Response_Filter>
                                         <bsvc:Request_Criteria>
-                                            <bsvc:Exclude_Inactive_Workers>{3}</bsvc:Exclude_Inactive_Workers>
+                                            <bsvc:Exclude_Inactive_Workers>{4}</bsvc:Exclude_Inactive_Workers>
                                         </bsvc:Request_Criteria>
                                         <bsvc:Response_Group>
                                             <bsvc:Include_Reference>true</bsvc:Include_Reference>
@@ -416,7 +440,7 @@ function Idm-WorkersRead {
                                             <bsvc:Include_User_Account>true</bsvc:Include_User_Account>
                                             <bsvc:Include_Worker_Documents>true</bsvc:Include_Worker_Documents>
                                         </bsvc:Response_Group>
-                                    </bsvc:Get_Workers_Request>' -f $page, $system_params.pagesize, $system_params.as_of_effective_date, $exclude_inactive_workers
+                                    </bsvc:Get_Workers_Request>' -f $system_params.version, $page, $system_params.pagesize, $system_params.as_of_effective_date, $exclude_inactive_workers
 
                     
                         $response = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
@@ -427,7 +451,7 @@ function Idm-WorkersRead {
 
                         foreach($item in ($response | ConvertFrom-WorkdayWorkerXml) ) {
                             [void]$Global:Workers.Add($item)
-                        }
+                        }  
                     }   
 
                     $Global:WorkersCacheTime = Get-Date
@@ -484,18 +508,18 @@ function Idm-WorkersUpdate {
             LogIO info "WorkerUpdate" -In -Email $function_params.Email
 		    $currentDate = Get-Date -Format "yyyy-MM-dd";
             
-            $xmlRequest = '<bsvc:Workday_Account_for_Worker_Update bsvc:version="v41.2">
+            $xmlRequest = '<bsvc:Workday_Account_for_Worker_Update bsvc:version="v{0}">
 			<bsvc:Worker_Reference>
 				<bsvc:Employee_Reference>
 					<bsvc:Integration_ID_Reference>
-						<bsvc:ID bsvc:System_ID="WD-EMPLID">{0}</bsvc:ID>
+						<bsvc:ID bsvc:System_ID="WD-EMPLID">{1}</bsvc:ID>
 					</bsvc:Integration_ID_Reference>
 				</bsvc:Employee_Reference>
 			</bsvc:Worker_Reference>
 			<bsvc:Workday_Account_for_Worker_Data>
-				<bsvc:User_Name>{1}</bsvc:User_Name>
+				<bsvc:User_Name>{2}</bsvc:User_Name>
 			</bsvc:Workday_Account_for_Worker_Data>
-		    </bsvc:Workday_Account_for_Worker_Update>' -f $function_params.WorkerID, $function_params.UserId
+		    </bsvc:Workday_Account_for_Worker_Update>' -f $system_params.version, $function_params.WorkerID, $function_params.UserId
 
                 
             $response = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
@@ -594,7 +618,7 @@ function Idm-WorkersEmailsUpdate {
         try {
             LogIO info "WorkerEmailUpdate" -In -Email $function_params.Email
 		$currentDate = Get-Date -Format "yyyy-MM-dd";
-            $xmlRequest = '<bsvc:Maintain_Contact_Information_for_Person_Event_Request bsvc:version="v30.0" bsvc:Add_Only="false">
+            $xmlRequest = '<bsvc:Maintain_Contact_Information_for_Person_Event_Request bsvc:version="v{0}" bsvc:Add_Only="false">
                                 <bsvc:Business_Process_Parameters>
                                     <bsvc:Auto_Complete>true</bsvc:Auto_Complete>
                                     <bsvc:Run_Now>true</bsvc:Run_Now>
@@ -604,23 +628,23 @@ function Idm-WorkersEmailsUpdate {
                                 </bsvc:Business_Process_Parameters>
                                 <bsvc:Maintain_Contact_Information_Data>
                                     <bsvc:Worker_Reference>
-                                        <bsvc:ID bsvc:type="Employee_ID">{0}</bsvc:ID>
+                                        <bsvc:ID bsvc:type="Employee_ID">{1}</bsvc:ID>
                                     </bsvc:Worker_Reference>
-                                    <bsvc:Effective_Date>{1}</bsvc:Effective_Date>
+                                    <bsvc:Effective_Date>{2}</bsvc:Effective_Date>
                                     <bsvc:Worker_Contact_Information_Data>
                                         <bsvc:Email_Address_Data bsvc:Do_Not_Replace_All="true">
-                                            <bsvc:Email_Address>{2}</bsvc:Email_Address>
-                                            <bsvc:Usage_Data bsvc:Public="{3}">
-                                                <bsvc:Type_Data bsvc:Primary="{4}">
+                                            <bsvc:Email_Address>{3}</bsvc:Email_Address>
+                                            <bsvc:Usage_Data bsvc:Public="{4}">
+                                                <bsvc:Type_Data bsvc:Primary="{5}">
                                                     <bsvc:Type_Reference>
-                                                        <bsvc:ID bsvc:type="Communication_Usage_Type_ID">{5}</bsvc:ID>
+                                                        <bsvc:ID bsvc:type="Communication_Usage_Type_ID">{6}</bsvc:ID>
                                                     </bsvc:Type_Reference>
                                                 </bsvc:Type_Data>
                                             </bsvc:Usage_Data>
                                         </bsvc:Email_Address_Data>
                                     </bsvc:Worker_Contact_Information_Data>
                                 </bsvc:Maintain_Contact_Information_Data>
-                            </bsvc:Maintain_Contact_Information_for_Person_Event_Request>' -f $function_params.WorkerID, $currentDate, $function_params.Email, $function_params.Public, $function_params.Primary, $function_params.UsageType
+                            </bsvc:Maintain_Contact_Information_for_Person_Event_Request>' -f $system_params.version, $function_params.WorkerID, $currentDate, $function_params.Email, $function_params.Public, $function_params.Primary, $function_params.UsageType
 
                 
             $response = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
@@ -674,7 +698,7 @@ function Idm-WorkersEmailsCreate {
 
         try {
             $currentDate = Get-Date -Format "yyyy-MM-dd";
-            $xmlRequest = '<bsvc:Maintain_Contact_Information_for_Person_Event_Request bsvc:version="v30.0" bsvc:Add_Only="false">
+            $xmlRequest = '<bsvc:Maintain_Contact_Information_for_Person_Event_Request bsvc:version="v{0}" bsvc:Add_Only="false">
                                 <bsvc:Business_Process_Parameters>
                                     <bsvc:Auto_Complete>true</bsvc:Auto_Complete>
                                     <bsvc:Run_Now>true</bsvc:Run_Now>
@@ -684,23 +708,23 @@ function Idm-WorkersEmailsCreate {
                                 </bsvc:Business_Process_Parameters>
                                 <bsvc:Maintain_Contact_Information_Data>
                                     <bsvc:Worker_Reference>
-                                        <bsvc:ID bsvc:type="Employee_ID">{0}</bsvc:ID>
+                                        <bsvc:ID bsvc:type="Employee_ID">{1}</bsvc:ID>
                                     </bsvc:Worker_Reference>
-                                    <bsvc:Effective_Date>{1}</bsvc:Effective_Date>
+                                    <bsvc:Effective_Date>{2}</bsvc:Effective_Date>
                                     <bsvc:Worker_Contact_Information_Data>
                                         <bsvc:Email_Address_Data bsvc:Do_Not_Replace_All="true">
-                                            <bsvc:Email_Address>{2}</bsvc:Email_Address>
-                                            <bsvc:Usage_Data bsvc:Public="{3}">
-                                                <bsvc:Type_Data bsvc:Primary="{4}">
+                                            <bsvc:Email_Address>{3}</bsvc:Email_Address>
+                                            <bsvc:Usage_Data bsvc:Public="{4}">
+                                                <bsvc:Type_Data bsvc:Primary="{5}">
                                                     <bsvc:Type_Reference>
-                                                        <bsvc:ID bsvc:type="Communication_Usage_Type_ID">{5}</bsvc:ID>
+                                                        <bsvc:ID bsvc:type="Communication_Usage_Type_ID">{6}</bsvc:ID>
                                                     </bsvc:Type_Reference>
                                                 </bsvc:Type_Data>
                                             </bsvc:Usage_Data>
                                         </bsvc:Email_Address_Data>
                                     </bsvc:Worker_Contact_Information_Data>
                                 </bsvc:Maintain_Contact_Information_Data>
-                            </bsvc:Maintain_Contact_Information_for_Person_Event_Request>' -f $function_params.WorkerID, $currentDate, $function_params.Email, $function_params.Public, $function_params.Primary, $function_params.UsageType
+                            </bsvc:Maintain_Contact_Information_for_Person_Event_Request>' -f $system_params.version, $function_params.WorkerID, $currentDate, $function_params.Email, $function_params.Public, $function_params.Primary, $function_params.UsageType
 
                 
             $response = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
@@ -1046,6 +1070,103 @@ function Idm-WorkersManagementChainRead {
     Log verbose "Done"
 }
 
+function Idm-WorkdayAccountsRead {
+    param (
+        [switch] $GetMeta,
+        [string] $SystemParams,
+        [string] $FunctionParams
+    )
+    $Class = "WorkdayAccount"
+    Log verbose "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
+
+    if ($GetMeta) {
+        Get-ClassMetaData -SystemParams $SystemParams -Class $Class
+    }
+    else {
+        $system_params   = ConvertFrom-Json2 $SystemParams
+        $function_params = ConvertFrom-Json2 $FunctionParams
+
+        $properties = $function_params.properties
+        if ($properties.length -eq 0) {
+            $properties = ($Global:Properties.$Class | Where-Object { $_.options.Contains('default') }).name
+        }
+
+        $key = ($Global:Properties.$Class | Where-Object { $_.options.Contains('key') }).name
+        $properties = @($key) + @($properties | Where-Object { $_ -ne $key })
+
+        try {
+            if (    $Global:WorkdayAccounts.count -lt 1 `
+                -or ( ((Get-Date) - $Global:WorkdayAccountsCacheTime) -gt (new-timespan -minutes 1) )
+               ) {
+                $Global:WorkdayAccounts.Clear()
+                $page = 0
+                $totalPages = 1
+
+                while ($page -lt $totalPages) {
+                    $page++
+
+                    $xmlRequest = '<bsvc:Get_Workday_Account_Request bsvc:version="v{0}">
+                        <bsvc:Response_Filter>
+                            <bsvc:Page>{1}</bsvc:Page>
+                            <bsvc:Count>{2}</bsvc:Count>
+                        </bsvc:Response_Filter>
+                        <bsvc:Response_Group>
+                            <bsvc:Include_Reference>true</bsvc:Include_Reference>
+                        </bsvc:Response_Group>
+                    </bsvc:Get_Workday_Account_Request>' -f $system_params.version, $page, $system_params.pagesize
+
+                    $result = Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources"
+                    $totalPages = $result.Get_Workday_Account_Response.Response_Results.Total_Pages
+
+                    LogIO info "Page $($page) of $($totalPages) - Record Count $($result.Get_Workday_Account_Response.Response_Data.Workday_Account_Response_Data.count)"
+                    Log verbose "Page $($page) of $($totalPages) - Record Count $($result.Get_Workday_Account_Response.Response_Data.Workday_Account_Response_Data.count)"
+
+                    foreach ($acct in @($result.Get_Workday_Account_Response.Response_Data.Workday_Account_Response_Data)) {
+                        $acctData = $acct.Workday_Account_for_Worker_Data
+                        if ($null -eq $acctData) { continue }
+
+                        $o = [pscustomobject][ordered]@{
+                            User_Name                                    = $acctData.User_Name
+                            Account_Disabled                              = (try { [System.Xml.XmlConvert]::ToBoolean($acctData.Account_Disabled) } catch { $false })
+                            Account_Expiration_Date                      = $acctData.Account_Expiration_Date
+                            Session_Timeout_Minutes                      = $acctData.Session_Timeout_Minutes
+                            Require_New_Password_at_Next_Sign_In         = (try { [System.Xml.XmlConvert]::ToBoolean($acctData.Require_New_Password_at_Next_Sign_In) } catch { $false })
+                            Multi_Factor_Authentication_Exempt           = (try { [System.Xml.XmlConvert]::ToBoolean($acctData.SelectSingleNode('wd:Multi-factor_Authentication_Exempt', $Global:NM).InnerText) } catch { $false })
+                            Multi_Factor_Authentication_Grace_Period_Disabled = (try { [System.Xml.XmlConvert]::ToBoolean($acctData.SelectSingleNode('wd:Multi-factor_Authentication_Grace_Period_Disabled', $Global:NM).InnerText) } catch { $false })
+                            Grace_Period_Logins_Remaining                = $acctData.Grace_Period_Logins_Remaining
+                            OpenID_Identifier                            = $acctData.OpenID_Identifier
+                            OpenID_Internal_Identifier                   = $acctData.OpenID_Internal_Identifier
+                            OpenID_Connect_Internal_Identifier           = $acctData.OpenID_Connect_Internal_Identifier
+                            Exempt_from_Delegated_Authentication         = (try { [System.Xml.XmlConvert]::ToBoolean($acctData.Exempt_from_Delegated_Authentication) } catch { $false })
+                            Locale                                       = $($acctData.SelectSingleNode('wd:Locale_Reference/wd:ID[@wd:type="Locale_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue)
+                            User_Language                                = $($acctData.SelectSingleNode('wd:User_Language_Reference/wd:ID[@wd:type="User_Language_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue)
+                            Preferred_Communication_Language             = $($acctData.SelectSingleNode('wd:Preferred_Communication_Language_Reference/wd:ID[@wd:type="User_Language_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue)
+                            Allow_Mixed_Language_Transactions            = (try { [System.Xml.XmlConvert]::ToBoolean($acctData.SelectSingleNode('wd:Allow_Mixed-Language_Transactions', $Global:NM).InnerText) } catch { $false })
+                            Show_User_Name_in_Browser_Window             = (try { [System.Xml.XmlConvert]::ToBoolean($acctData.Show_User_Name_in_Browser_Window) } catch { $false })
+                            Display_XML_Icon_on_Reports                  = (try { [System.Xml.XmlConvert]::ToBoolean($acctData.Display_XML_Icon_on_Reports) } catch { $false })
+                            Enable_Workbox                               = (try { [System.Xml.XmlConvert]::ToBoolean($acctData.Enable_Workbox) } catch { $false })
+                        }
+                        [void]$Global:WorkdayAccounts.Add($o)
+                    }
+                    break #TODO: REMOVE WHEN DEV COMPLETE
+                }
+
+                $Global:WorkdayAccountsCacheTime = Get-Date
+                $Global:WorkdayAccounts
+            }
+            else {
+                $Global:WorkdayAccounts
+            }
+        }
+        catch {
+            Log error "Failed: $_"
+            Write-Error $_
+        }
+    }
+
+    Log verbose "Done"
+}
+
 function Invoke-WorkdayRequest {
     param (
         [hashtable] $SystemParams,
@@ -1116,7 +1237,6 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 
         $response = Invoke-RestMethod @splat -ErrorAction Stop
         $result = [xml]$response.Envelope.Body.InnerXml
-				
 	}
 	catch [System.Net.WebException] {
        
@@ -1746,13 +1866,14 @@ function Get-WorkdayWorkerPhoto {
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param (
+        [Parameter(Mandatory=$true)]
+        $SystemParams,
         [Parameter(Mandatory=$true,
-                    Position=0,
                     ValueFromPipelineByPropertyName=$true,
                     ParameterSetName='IndividualWorker')]
         [ValidatePattern ('^$|^[a-fA-F0-9\-]{1,32}$')]
         [string]$WorkerId,
-        [Parameter(Position=1,
+        [Parameter(
                     ValueFromPipelineByPropertyName=$true,
                     ParameterSetName='IndividualWorker')]
         [ValidateSet('WID', 'Contingent_Worker_ID', 'Employee_ID')]
@@ -1771,7 +1892,7 @@ function Get-WorkdayWorkerPhoto {
 
     process {
         $request = [xml]@'
-<bsvc:Get_Worker_Photos_Request bsvc:version="v30.0" xmlns:bsvc="urn:com.workday/bsvc">
+<bsvc:Get_Worker_Photos_Request bsvc:version="v{0}" xmlns:bsvc="urn:com.workday/bsvc">
     <bsvc:Request_References bsvc:Skip_Non_Existing_Instances="false">
     <bsvc:Worker_Reference>
         <bsvc:ID bsvc:type="Employee_ID">?EmployeeId?</bsvc:ID>
@@ -1781,7 +1902,7 @@ function Get-WorkdayWorkerPhoto {
     <bsvc:As_Of_Entry_DateTime>?DateTime?</bsvc:As_Of_Entry_DateTime>
     </bsvc:Response_Filter>
 </bsvc:Get_Worker_Photos_Request>
-'@
+'@ -f $SystemParams.version
 
         $request.Get_Worker_Photos_Request.Response_Filter.As_Of_Entry_DateTime = $AsOfEntryDateTime.ToString('o')
 
