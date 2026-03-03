@@ -664,6 +664,170 @@ function Idm-WorkersEmailsUpdate {
     Log verbose "Done"
 }
 
+function Idm-WorkersEmailsWorkcontactupdate {
+    param (
+        # Operations
+        [switch] $GetMeta,
+        # Parameters
+        [string] $SystemParams,
+        [string] $FunctionParams
+    )
+
+    Log verbose "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
+
+    if ($GetMeta) {
+        #
+        # Get meta data
+        #
+
+        @{
+            semantics  = 'update'
+            parameters = @(
+                $Global:Properties.WorkerEmail | ? { $_.name -ne 'UsageType' } | ForEach-Object {
+                    @{ name = $_.name; allowance = 'mandatory' }
+                }    
+            )
+        }
+    }
+    else {
+        #
+        # Execute function
+        #
+        $system_params = ConvertFrom-Json2 $SystemParams
+        $function_params = ConvertFrom-Json2 $FunctionParams
+
+        $key = ($Global:Properties.WorkerEmail | Where-Object { $_.options.Contains('key') }).name
+
+        try {
+            LogIO info "WorkerEmailUpdate" -In -Email $function_params.Email
+            $currentDate = Get-Date -Format "yyyy-MM-dd";
+            $xmlRequest = '<bsvc:Change_Work_Contact_Information_Request bsvc:version="v{0}">
+                                <bsvc:Business_Process_Parameters>
+                                    <bsvc:Auto_Complete>true</bsvc:Auto_Complete>
+                                    <bsvc:Run_Now>true</bsvc:Run_Now>
+                                    <bsvc:Comment_Data>
+                                        <bsvc:Comment>Email set by NIM</bsvc:Comment>
+                                    </bsvc:Comment_Data>
+                                </bsvc:Business_Process_Parameters>
+                                <bsvc:Change_Work_Contact_Information_Data>
+                                    <bsvc:Worker_Reference>
+                                        <bsvc:ID bsvc:type="Employee_ID">{1}</bsvc:ID>
+                                    </bsvc:Worker_Reference>
+                                    <bsvc:Effective_Date>{2}</bsvc:Effective_Date>
+                                    <bsvc:Person_Contact_Information_Data>
+                                        <bsvc:Email_Information_Data bsvc:Do_Not_Replace_All="true">
+                                            <bsvc:Email_Data wd:Delete="false">
+                                                <bsvc:Email_Address>{3}</bsvc:Email_Address>
+                                                <wd:Email_Comment>Email set by NIM</wd:Email_Comment>
+                                            </bsvc:Email_Information_Data>
+                                            <bsvc:Usage_Data bsvc:Public="{4}">
+                                                <bsvc:Type_Data bsvc:Primary="{5}">
+                                                    <bsvc:Type_Reference>
+                                                        <bsvc:ID bsvc:type="Communication_Usage_Type_ID">WORK</bsvc:ID>
+                                                    </bsvc:Type_Reference>
+                                                </bsvc:Type_Data>
+                                            </bsvc:Usage_Data>
+                                    </bsvc:Person_Contact_Information_Data>
+                                </bsvc:Change_Work_Contact_Information_Data>
+                            </bsvc:Change_Work_Contact_Information_Request>' -f $system_params.version, $function_params.WorkerID, $currentDate, $function_params.Email, $function_params.Public, $function_params.Primary, $function_params.UsageType
+
+                
+            Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources" | Out-Null
+            $rv = $true
+            LogIO info "WorkersEmail" -Out $rv
+            Log verbose ($function_params | ConvertTo-Json)
+        }
+        catch {
+            Log error "Failed: $_"
+            Write-Error $_
+        }
+    }
+
+    Log verbose "Done"
+}
+
+function Idm-WorkersEmailsHomecontactupdate {
+    param (
+        # Operations
+        [switch] $GetMeta,
+        # Parameters
+        [string] $SystemParams,
+        [string] $FunctionParams
+    )
+
+    Log verbose "-GetMeta=$GetMeta -SystemParams='$SystemParams' -FunctionParams='$FunctionParams'"
+
+    if ($GetMeta) {
+        #
+        # Get meta data
+        #
+
+        @{
+            semantics  = 'update'
+            parameters = @(
+                $Global:Properties.WorkerEmail | ? { $_.name -ne 'UsageType' } | ForEach-Object {
+                    @{ name = $_.name; allowance = 'mandatory' }
+                }    
+            )
+        }
+    }
+    else {
+        #
+        # Execute function
+        #
+        $system_params = ConvertFrom-Json2 $SystemParams
+        $function_params = ConvertFrom-Json2 $FunctionParams
+
+        $key = ($Global:Properties.WorkerEmail | Where-Object { $_.options.Contains('key') }).name
+
+        try {
+            LogIO info "WorkerEmailUpdate" -In -Email $function_params.Email
+            $currentDate = Get-Date -Format "yyyy-MM-dd";
+            $xmlRequest = '<bsvc:Change_Work_Contact_Information_Request bsvc:version="v{0}">
+                                <bsvc:Business_Process_Parameters>
+                                    <bsvc:Auto_Complete>true</bsvc:Auto_Complete>
+                                    <bsvc:Run_Now>true</bsvc:Run_Now>
+                                    <bsvc:Comment_Data>
+                                        <bsvc:Comment>Email set by NIM</bsvc:Comment>
+                                    </bsvc:Comment_Data>
+                                </bsvc:Business_Process_Parameters>
+                                <bsvc:Change_Work_Contact_Information_Data>
+                                    <bsvc:Worker_Reference>
+                                        <bsvc:ID bsvc:type="Employee_ID">{1}</bsvc:ID>
+                                    </bsvc:Worker_Reference>
+                                    <bsvc:Effective_Date>{2}</bsvc:Effective_Date>
+                                    <bsvc:Person_Contact_Information_Data>
+                                        <bsvc:Email_Information_Data bsvc:Do_Not_Replace_All="true">
+                                            <bsvc:Email_Data wd:Delete="false">
+                                                <bsvc:Email_Address>{3}</bsvc:Email_Address>
+                                                <wd:Email_Comment>Email set by NIM</wd:Email_Comment>
+                                            </bsvc:Email_Information_Data>
+                                            <bsvc:Usage_Data bsvc:Public="{4}">
+                                                <bsvc:Type_Data bsvc:Primary="{5}">
+                                                    <bsvc:Type_Reference>
+                                                        <bsvc:ID bsvc:type="Communication_Usage_Type_ID">HOME</bsvc:ID>
+                                                    </bsvc:Type_Reference>
+                                                </bsvc:Type_Data>
+                                            </bsvc:Usage_Data>
+                                    </bsvc:Person_Contact_Information_Data>
+                                </bsvc:Change_Work_Contact_Information_Data>
+                            </bsvc:Change_Work_Contact_Information_Request>' -f $system_params.version, $function_params.WorkerID, $currentDate, $function_params.Email, $function_params.Public, $function_params.Primary, $function_params.UsageType
+
+                
+            Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources" | Out-Null
+            $rv = $true
+            LogIO info "WorkersEmail" -Out $rv
+            Log verbose ($function_params | ConvertTo-Json)
+        }
+        catch {
+            Log error "Failed: $_"
+            Write-Error $_
+        }
+    }
+
+    Log verbose "Done"
+}
+
 function Idm-WorkersEmailsCreate {
     param (
         # Operations
