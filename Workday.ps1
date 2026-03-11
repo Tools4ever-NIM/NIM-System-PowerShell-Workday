@@ -664,7 +664,7 @@ function Idm-WorkersEmailsUpdate {
     Log verbose "Done"
 }
 
-function Idm-WorkersEmailsWorkcontactupdate {
+function Idm-WorkersEmailsWorkcontactcreate {
     param (
         # Operations
         [switch] $GetMeta,
@@ -681,7 +681,7 @@ function Idm-WorkersEmailsWorkcontactupdate {
         #
 
         @{
-            semantics  = 'update'
+            semantics  = 'create'
             parameters = @(
                 $Global:Properties.WorkerEmail | ? { $_.name -ne 'UsageType' } | ForEach-Object {
                     @{ name = $_.name; allowance = 'mandatory' }
@@ -699,7 +699,7 @@ function Idm-WorkersEmailsWorkcontactupdate {
         $key = ($Global:Properties.WorkerEmail | Where-Object { $_.options.Contains('key') }).name
 
         try {
-            LogIO info "WorkerEmailUpdate" -In -Email $function_params.Email
+            LogIO info "WorkerEmailWorkCreate" -In -Email $function_params.Email
             $currentDate = Get-Date -Format "yyyy-MM-dd";
             $xmlRequest = '<bsvc:Change_Work_Contact_Information_Request bsvc:version="v{0}">
                                 <bsvc:Business_Process_Parameters>
@@ -710,31 +710,34 @@ function Idm-WorkersEmailsWorkcontactupdate {
                                     </bsvc:Comment_Data>
                                 </bsvc:Business_Process_Parameters>
                                 <bsvc:Change_Work_Contact_Information_Data>
-                                    <bsvc:Worker_Reference>
+                                    <bsvc:Person_Reference>
                                         <bsvc:ID bsvc:type="Employee_ID">{1}</bsvc:ID>
-                                    </bsvc:Worker_Reference>
-                                    <bsvc:Effective_Date>{2}</bsvc:Effective_Date>
+                                    </bsvc:Person_Reference>
+                                    <bsvc:Event_Effective_Date>{2}</bsvc:Event_Effective_Date>
                                     <bsvc:Person_Contact_Information_Data>
-                                        <bsvc:Email_Information_Data bsvc:Do_Not_Replace_All="true">
-                                            <bsvc:Email_Data wd:Delete="false">
-                                                <bsvc:Email_Address>{3}</bsvc:Email_Address>
-                                                <wd:Email_Comment>Email set by NIM</wd:Email_Comment>
-                                            </bsvc:Email_Information_Data>
-                                            <bsvc:Usage_Data bsvc:Public="{4}">
-                                                <bsvc:Type_Data bsvc:Primary="{5}">
-                                                    <bsvc:Type_Reference>
-                                                        <bsvc:ID bsvc:type="Communication_Usage_Type_ID">WORK</bsvc:ID>
-                                                    </bsvc:Type_Reference>
-                                                </bsvc:Type_Data>
-                                            </bsvc:Usage_Data>
+                                        <bsvc:Person_Email_Information_Data  bsvc:Replace_All="false">
+                                            <bsvc:Email_Information_Data>    
+                                                <bsvc:Email_Data>
+                                                    <bsvc:Email_Address>{3}</bsvc:Email_Address>
+                                                    <bsvc:Email_Comment>Email set by NIM</bsvc:Email_Comment>
+                                                </bsvc:Email_Data>
+                                                <bsvc:Usage_Data bsvc:Public="{4}">
+                                                    <bsvc:Type_Data bsvc:Primary="{5}">
+                                                        <bsvc:Type_Reference>
+                                                            <bsvc:ID bsvc:type="Communication_Usage_Type_ID">WORK</bsvc:ID>
+                                                        </bsvc:Type_Reference>
+                                                    </bsvc:Type_Data>
+                                                </bsvc:Usage_Data>
+                                            </bsvc:Email_Information_Data>    
+                                        </bsvc:Person_Email_Information_Data>
                                     </bsvc:Person_Contact_Information_Data>
                                 </bsvc:Change_Work_Contact_Information_Data>
-                            </bsvc:Change_Work_Contact_Information_Request>' -f $system_params.version, $function_params.WorkerID, $currentDate, $function_params.Email, $function_params.Public, $function_params.Primary, $function_params.UsageType
-
+                            </bsvc:Change_Work_Contact_Information_Request>' -f $system_params.version, $function_params.WorkerID, $currentDate, $function_params.Email, $function_params.Public, $function_params.Primary
+            Log info $xmlRequest
                 
             Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources" | Out-Null
             $rv = $true
-            LogIO info "WorkersEmail" -Out $rv
+            LogIO info "WorkerEmailWorkCreate" -Out $rv
             Log verbose ($function_params | ConvertTo-Json)
         }
         catch {
@@ -746,7 +749,7 @@ function Idm-WorkersEmailsWorkcontactupdate {
     Log verbose "Done"
 }
 
-function Idm-WorkersEmailsHomecontactupdate {
+function Idm-WorkersEmailsHomecontactcreate {
     param (
         # Operations
         [switch] $GetMeta,
@@ -763,7 +766,7 @@ function Idm-WorkersEmailsHomecontactupdate {
         #
 
         @{
-            semantics  = 'update'
+            semantics  = 'create'
             parameters = @(
                 $Global:Properties.WorkerEmail | ? { $_.name -ne 'UsageType' } | ForEach-Object {
                     @{ name = $_.name; allowance = 'mandatory' }
@@ -781,7 +784,7 @@ function Idm-WorkersEmailsHomecontactupdate {
         $key = ($Global:Properties.WorkerEmail | Where-Object { $_.options.Contains('key') }).name
 
         try {
-            LogIO info "WorkerEmailUpdate" -In -Email $function_params.Email
+            LogIO info "WorkerEmailHomeCreate" -In -Email $function_params.Email
             $currentDate = Get-Date -Format "yyyy-MM-dd";
             $xmlRequest = '<bsvc:Change_Work_Contact_Information_Request bsvc:version="v{0}">
                                 <bsvc:Business_Process_Parameters>
@@ -792,31 +795,34 @@ function Idm-WorkersEmailsHomecontactupdate {
                                     </bsvc:Comment_Data>
                                 </bsvc:Business_Process_Parameters>
                                 <bsvc:Change_Work_Contact_Information_Data>
-                                    <bsvc:Worker_Reference>
+                                    <bsvc:Person_Reference>
                                         <bsvc:ID bsvc:type="Employee_ID">{1}</bsvc:ID>
-                                    </bsvc:Worker_Reference>
-                                    <bsvc:Effective_Date>{2}</bsvc:Effective_Date>
+                                    </bsvc:Person_Reference>
+                                    <bsvc:Event_Effective_Date>{2}</bsvc:Event_Effective_Date>
                                     <bsvc:Person_Contact_Information_Data>
-                                        <bsvc:Email_Information_Data bsvc:Do_Not_Replace_All="true">
-                                            <bsvc:Email_Data wd:Delete="false">
-                                                <bsvc:Email_Address>{3}</bsvc:Email_Address>
-                                                <wd:Email_Comment>Email set by NIM</wd:Email_Comment>
+                                        <bsvc:Person_Email_Information_Data bsvc:Replace_All="false">
+                                            <bsvc:Email_Information_Data>    
+                                                <bsvc:Email_Data>
+                                                    <bsvc:Email_Address>{3}</bsvc:Email_Address>
+                                                    <bsvc:Email_Comment>Email set by NIM</bsvc:Email_Comment>
+                                                </bsvc:Email_Data>
+                                                <bsvc:Usage_Data bsvc:Public="{4}">
+                                                    <bsvc:Type_Data bsvc:Primary="{5}">
+                                                        <bsvc:Type_Reference>
+                                                            <bsvc:ID bsvc:type="Communication_Usage_Type_ID">HOME</bsvc:ID>
+                                                        </bsvc:Type_Reference>
+                                                    </bsvc:Type_Data>
+                                                </bsvc:Usage_Data>
                                             </bsvc:Email_Information_Data>
-                                            <bsvc:Usage_Data bsvc:Public="{4}">
-                                                <bsvc:Type_Data bsvc:Primary="{5}">
-                                                    <bsvc:Type_Reference>
-                                                        <bsvc:ID bsvc:type="Communication_Usage_Type_ID">HOME</bsvc:ID>
-                                                    </bsvc:Type_Reference>
-                                                </bsvc:Type_Data>
-                                            </bsvc:Usage_Data>
+                                        </bsvc:Person_Email_Information_Data >
                                     </bsvc:Person_Contact_Information_Data>
                                 </bsvc:Change_Work_Contact_Information_Data>
-                            </bsvc:Change_Work_Contact_Information_Request>' -f $system_params.version, $function_params.WorkerID, $currentDate, $function_params.Email, $function_params.Public, $function_params.Primary, $function_params.UsageType
+                            </bsvc:Change_Work_Contact_Information_Request>' -f $system_params.version, $function_params.WorkerID, $currentDate, $function_params.Email, $function_params.Public, $function_params.Primary
 
                 
             Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources" | Out-Null
             $rv = $true
-            LogIO info "WorkersEmail" -Out $rv
+            LogIO info "WorkerEmailHomeCreate" -Out $rv
             Log verbose ($function_params | ConvertTo-Json)
         }
         catch {
