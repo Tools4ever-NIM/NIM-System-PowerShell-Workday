@@ -697,7 +697,7 @@ function Idm-WorkersEmailsWorkcontactcreate {
         $function_params = ConvertFrom-Json2 $FunctionParams
 
         $key = ($Global:Properties.WorkerEmail | Where-Object { $_.options.Contains('key') }).name
-
+        $function_params.UsageType = 'WORK'
         try {
             LogIO info "WorkerEmailWorkCreate" -In -Email $function_params.Email
             $currentDate = Get-Date -Format "yyyy-MM-dd";
@@ -782,7 +782,7 @@ function Idm-WorkersEmailsHomecontactcreate {
         $function_params = ConvertFrom-Json2 $FunctionParams
 
         $key = ($Global:Properties.WorkerEmail | Where-Object { $_.options.Contains('key') }).name
-
+        $function_params.UsageType = 'HOME'
         try {
             LogIO info "WorkerEmailHomeCreate" -In -Email $function_params.Email
             $currentDate = Get-Date -Format "yyyy-MM-dd";
