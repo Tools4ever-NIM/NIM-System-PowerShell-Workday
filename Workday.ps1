@@ -1,3 +1,4 @@
+# version: 1.3.6
 #
 # Workday.ps1 - Workday Web Services API (SOAP)
 #
@@ -1842,8 +1843,8 @@ function Get-WorkdayWorkerAddress {
         $o.State = $_.SelectSingleNode('wd:Country_Region_Reference/wd:ID[@wd:type="Country_Region_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
         $o.PostalCode = $_.Postal_Code
         $o.Country = $_.SelectSingleNode('wd:Country_Reference/wd:ID[@wd:type="ISO_3166-1_Alpha-2_Code"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
-        $o.Primary = [System.Xml.XmlConvert]::ToBoolean( $_.Usage_Data.Type_Data.Primary )
-        $o.Public = [System.Xml.XmlConvert]::ToBoolean( $_.Usage_Data.Public )
+        $o.Primary = try { [System.Xml.XmlConvert]::ToBoolean( $_.Usage_Data.Type_Data.Primary ) } catch {}
+        $o.Public = try { [System.Xml.XmlConvert]::ToBoolean( $_.Usage_Data.Public ) } catch {}
         Write-Output $o
     }
 }
@@ -1873,8 +1874,8 @@ function Get-WorkdayWorkerEmail {
         $o = $numberTemplate.PsObject.Copy()
         $o.UsageType = $_.SelectSingleNode('wd:Usage_Data/wd:Type_Data/wd:Type_Reference/wd:ID[@wd:type="Communication_Usage_Type_ID"]', $Global:NM).InnerText
         $o.Email = $_.Email_Address
-        $o.Primary = [System.Xml.XmlConvert]::ToBoolean( $_.Usage_Data.Type_Data.Primary )
-        $o.Public = [System.Xml.XmlConvert]::ToBoolean( $_.Usage_Data.Public )
+        $o.Primary = try{[System.Xml.XmlConvert]::ToBoolean( $_.Usage_Data.Type_Data.Primary )} catch {}
+        $o.Public = try{[System.Xml.XmlConvert]::ToBoolean( $_.Usage_Data.Public ) } catch {}
         Write-Output $o
     }
 }
@@ -1975,8 +1976,8 @@ function Get-WorkdayWorkerPhone {
         $o.Area_Code = $areaCode
         $o.Number = $phoneNumber
         $o.Extension = $_ | Select-Object -ExpandProperty 'Phone_Extension' -ErrorAction SilentlyContinue
-        $o.Primary = [System.Xml.XmlConvert]::ToBoolean( $_.Usage_Data.Type_Data.Primary )
-        $o.Public = [System.Xml.XmlConvert]::ToBoolean( $_.Usage_Data.Public )
+        $o.Primary = try{[System.Xml.XmlConvert]::ToBoolean( $_.Usage_Data.Type_Data.Primary )} catch{}
+        $o.Public = try{[System.Xml.XmlConvert]::ToBoolean( $_.Usage_Data.Public )} catch{}
         Write-Output $o
     }
 }
