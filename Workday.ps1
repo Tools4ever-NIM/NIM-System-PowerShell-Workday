@@ -1,4 +1,3 @@
-# version: 1.3.6
 #
 # Workday.ps1 - Workday Web Services API (SOAP)
 #
@@ -242,7 +241,7 @@ $Properties = @{
         @{ name = 'timeType'; options = @('default') }
         @{ name = 'Department'; options = @('default') }
         @{ name = 'Terminated'; options = @('default') }
-        @{ name = 'Termination_Date`'; options = @('default') }
+        @{ name = 'Termination_Date'; options = @('default') }
         @{ name = 'Active_Status_Date'; options = @('default') }
         @{ name = 'Rehired'; options = @('default') }
         @{ name = 'PositionJobFamily'; options = @('default') }
@@ -251,7 +250,7 @@ $Properties = @{
         @{ name = 'Legal_FirstName'; options = @('default') }
         @{ name = 'Legal_MiddleName'; options = @('default') }
         @{ name = 'Legal_LastName'; options = @('default') }
-        @{ name = 'Date_Of_Birth'; options = @('default') }
+        @{ name = 'Birth_Date'; options = @('default') }
         @{ name = 'Gender'; options = @('default') }
         @{ name = 'Marital_Status'; options = @('default') }
         @{ name = 'Country_of_Birth'; options = @('default') }
@@ -309,11 +308,13 @@ $Properties = @{
         @{ name = 'Not_Returning'; options = @('default') }
         @{ name = 'Return_Unknown'; options = @('default') }
         @{ name = 'Days_Unemployed'; options = @('default') }
+        @{ name = 'Leave_Start_Date'; options = @('default') }
         @{ name = 'Months_Continuous_Prior_Employment'; options = @('default') }
     )
     WorkerEmail           = @(
         @{ name = 'WorkerID'; options = @('default', 'key') }
         @{ name = 'UsageType'; options = @('default') }
+        @{ name = 'WorkerType'; options = @('default') }
         @{ name = 'Email'; options = @('default') }
         @{ name = 'Primary'; options = @('default') }
         @{ name = 'Public'; options = @('default') }
@@ -712,7 +713,7 @@ function Idm-WorkersEmailsWorkcontactcreate {
                                 </bsvc:Business_Process_Parameters>
                                 <bsvc:Change_Work_Contact_Information_Data>
                                     <bsvc:Person_Reference>
-                                        <bsvc:ID bsvc:type="Employee_ID">{1}</bsvc:ID>
+                                        <bsvc:ID bsvc:type="{6}">{1}</bsvc:ID>
                                     </bsvc:Person_Reference>
                                     <bsvc:Event_Effective_Date>{2}</bsvc:Event_Effective_Date>
                                     <bsvc:Person_Contact_Information_Data>
@@ -733,7 +734,7 @@ function Idm-WorkersEmailsWorkcontactcreate {
                                         </bsvc:Person_Email_Information_Data>
                                     </bsvc:Person_Contact_Information_Data>
                                 </bsvc:Change_Work_Contact_Information_Data>
-                            </bsvc:Change_Work_Contact_Information_Request>' -f $system_params.version, $function_params.WorkerID, $currentDate, $function_params.Email, $function_params.Public, $function_params.Primary
+                            </bsvc:Change_Work_Contact_Information_Request>' -f $system_params.version, $function_params.WorkerID, $currentDate, $function_params.Email, $function_params.Public, $function_params.Primary, $function_params.WorkerType
             Log info $xmlRequest
                 
             Invoke-WorkdayRequest -SystemParams $system_params -FunctionParams $function_params -Body $xmlRequest -Namespace "Human_Resources" | Out-Null
@@ -1398,7 +1399,7 @@ function ConvertFrom-WorkdayWorkerXml {
             Legal_FirstName                    = $null
             Legal_MiddleName                   = $null
             Legal_LastName                     = $null
-            Date_Of_Birth                      = $null
+            Birth_Date                         = $null
             Gender                             = $null
             Marital_Status                     = $null
             Country_of_Birth                   = $null
@@ -1487,6 +1488,7 @@ function ConvertFrom-WorkdayWorkerXml {
             Return_Unknown                     = $null
             Days_Unemployed                    = $null
             Months_Continuous_Prior_Employment = $null
+            Leave_Start_Date                   = $null
         }
         $WorkerObjectTemplate.PsObject.TypeNames.Insert(0, "Workday.Worker")
     }
@@ -1524,7 +1526,7 @@ function ConvertFrom-WorkdayWorkerXml {
                 $o.Legal_LastName = $x.Worker_Data.Personal_Data.Name_Data.Legal_Name_Data.Name_Detail_Data.Last_Name
 
                 # Biographical data
-                $o.Date_Of_Birth = $x.Worker_Data.Personal_Data.Biographical_Data.Date_Of_Birth
+                $o.Birth_Date = $x.Worker_Data.Personal_Data.Biographical_Data.Birth_Date
                 $o.Gender = $x.SelectSingleNode('./wd:Worker_Data/wd:Personal_Data/wd:Biographical_Data/wd:Gender_Reference/wd:ID[@wd:type="Gender_Code"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
                 $o.Marital_Status = $x.SelectSingleNode('./wd:Worker_Data/wd:Personal_Data/wd:Biographical_Data/wd:Marital_Status_Reference/wd:ID[@wd:type="Marital_Status_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
                 $o.Country_of_Birth = $x.SelectSingleNode('./wd:Worker_Data/wd:Personal_Data/wd:Biographical_Data/wd:Country_of_Birth_Reference/wd:ID[@wd:type="ISO_3166-1_Alpha-3_Code"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
@@ -1551,6 +1553,7 @@ function ConvertFrom-WorkdayWorkerXml {
                     $o.Retired = $workerEmploymentData.Worker_Status_Data.Retired
                     $o.End_Employment_Date = $workerEmploymentData.Worker_Status_Data.End_Employment_Date
                     $o.On_Leave = $workerEmploymentData.Worker_Status_Data.Leave_Status_Data.On_Leave -eq '1'
+                    $o.Leave_Start_Date = $workerEmploymentData.Worker_Status_Data.Leave_Status_Data.Leave_Start_Date
                     $o.Leave_Type = $workerEmploymentData.SelectSingleNode('./wd:Worker_Status_Data/wd:Leave_Status_Data/wd:Leave_Type_Reference/wd:ID[@wd:type="Leave_Type_ID"]', $Global:NM) | Select-Object -ExpandProperty InnerText -ErrorAction SilentlyContinue
                     $o.Hire_Date = $workerEmploymentData.Worker_Status_Data.Hire_Date
                     $o.Original_Hire_Date = $workerEmploymentData.Worker_Status_Data.Original_Hire_Date
@@ -1668,6 +1671,7 @@ function ConvertFrom-WorkdayWorkerXml {
                 foreach ($item in $o.Email) {
                     [void]$Global:WorkersEmail.Add(@{
                             WorkerID  = $o.WorkerID
+                            WorkerType = $o.WorkerType
                             UsageType = $item.UsageType
                             Email     = $item.Email
                             Primary   = $item.Primary
