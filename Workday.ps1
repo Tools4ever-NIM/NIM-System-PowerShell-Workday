@@ -1,4 +1,3 @@
-# version: 1.3.7
 #
 # Workday.ps1 - Workday Web Services API (SOAP)
 #
